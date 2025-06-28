@@ -1,0 +1,39 @@
+name: "App Store Connect Next Version"
+description: "Determines the next version and build number based on App Store Connect status."
+author: "Gemini"
+
+inputs:
+  issuer-id:
+    description: "App Store Connect API Issuer ID."
+    required: true
+  key-id:
+    description: "App Store Connect API Key ID."
+    required: true
+  key:
+    description: "App Store Connect API Private Key."
+    required: true
+  bundle-id:
+    description: "The bundle ID of the app."
+    required: true
+  platform:
+    description: "The platform of the app (e.g., IOS, MAC_OS, TV_OS). Defaults to IOS."
+    required: false
+    default: "IOS"
+  create-new-version:
+    description: "Set to true to automatically create a new App Store version if one does not exist."
+    required: false
+    default: "false"
+
+outputs:
+  version:
+    description: "The determined version string for the next build."
+  buildNumber:
+    description: "The determined build number for the next build."
+  action:
+    description: "The action to take: new_version, increment_build, or skip."
+  versionCreated:
+    description: "True if a new App Store version was created, false otherwise."
+
+runs:
+  using: "node20"
+  main: "dist/index.cjs"

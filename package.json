@@ -1,0 +1,31 @@
+{
+  "name": "asc-next-version",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/main.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "jest": {
+    "type": "module"
+  },
+  "scripts": {
+    "test": "jest test/jwt.test.js test/api.test.js test/versioning.test.js",
+    "build": "esbuild src/main.js --bundle --platform=node --format=cjs --outfile=dist/index.cjs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@actions/core": "^1.11.1",
+    "@actions/github": "^6.0.1",
+    "axios": "^1.10.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.27.7",
+    "@babel/preset-env": "^7.27.2",
+    "babel-jest": "^30.0.2",
+    "esbuild": "^0.25.5",
+    "jest": "^30.0.3"
+  }
+}
