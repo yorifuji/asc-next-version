@@ -34815,27 +34815,73 @@ async function run() {
     const appId = appsResponse.data[0].id;
     const appStoreVersionsUrl = `https://api.appstoreconnect.apple.com/v1/apps/${appId}/appStoreVersions?filter[appStoreState]=READY_FOR_SALE&limit=1`;
     const versionsResponse = await callApi(appStoreVersionsUrl, token);
+    let liveVersionInfo, liveVersion;
     if (!versionsResponse.data || versionsResponse.data.length === 0) {
-      throw new Error("No live version found for the app.");
+      core.info("No live version found. Checking for the latest version...");
+      const latestVersionUrl = `https://api.appstoreconnect.apple.com/v1/apps/${appId}/appStoreVersions?sort=-createdDate&limit=1`;
+      const latestVersionResponse = await callApi(latestVersionUrl, token);
+      if (!latestVersionResponse.data || latestVersionResponse.data.length === 0) {
+        core.info(
+          "No versions found. This appears to be a new app. Using base version 1.0.0"
+        );
+        liveVersion = "1.0.0";
+        liveVersionInfo = null;
+      } else {
+        liveVersionInfo = latestVersionResponse.data[0];
+        liveVersion = liveVersionInfo.attributes.versionString;
+        core.info(
+          `Using latest version as base: ${liveVersion} (state: ${liveVersionInfo.attributes.appStoreState})`
+        );
+      }
+    } else {
+      liveVersionInfo = versionsResponse.data[0];
+      liveVersion = liveVersionInfo.attributes.versionString;
+      core.info(`Found live version: ${liveVersion}`);
     }
-    const liveVersionInfo = versionsResponse.data[0];
-    const liveVersion = liveVersionInfo.attributes.versionString;
-    const liveBuild = liveVersionInfo.relationships.build.data;
     let liveMaxBuild = 0;
-    if (liveBuild) {
-      const buildUrl = `https://api.appstoreconnect.apple.com/v1/builds/${liveBuild.id}`;
-      const buildResponse = await callApi(buildUrl, token);
-      liveMaxBuild = parseInt(buildResponse.data.attributes.version, 10);
+    if (liveVersionInfo) {
+      const liveBuild = liveVersionInfo.relationships.build.data;
+      if (liveBuild) {
+        const buildUrl = `https://api.appstoreconnect.apple.com/v1/builds/${liveBuild.id}`;
+        const buildResponse = await callApi(buildUrl, token);
+        liveMaxBuild = parseInt(buildResponse.data.attributes.version, 10);
+      }
+    }
+    if (liveMaxBuild === 0) {
+      const preReleaseVersionsUrl = `https://api.appstoreconnect.apple.com/v1/preReleaseVersions?filter[version]=${liveVersion}&filter[app]=${appId}&limit=1`;
+      const preReleaseVersionsResponse = await callApi(
+        preReleaseVersionsUrl,
+        token
+      );
+      if (preReleaseVersionsResponse.data && preReleaseVersionsResponse.data.length > 0) {
+        const preReleaseVersionId = preReleaseVersionsResponse.data[0].id;
+        const buildsUrl = `https://api.appstoreconnect.apple.com/v1/builds?filter[preReleaseVersion]=${preReleaseVersionId}&sort=-version&limit=1`;
+        const buildsResponse = await callApi(buildsUrl, token);
+        if (buildsResponse.data && buildsResponse.data.length > 0) {
+          liveMaxBuild = parseInt(
+            buildsResponse.data[0].attributes.version,
+            10
+          );
+        }
+      }
     }
     core.info(`Live version: ${liveVersion}, Live max build: ${liveMaxBuild}`);
-    const { version, buildNumber, action } = await determineNextVersionAndBuild(liveVersion, liveMaxBuild, appId, token, callApi);
+    const { version, buildNumber, action } = await determineNextVersionAndBuild(
+      liveVersion,
+      liveMaxBuild,
+      appId,
+      token,
+      callApi
+    );
     if (action === "new_version" && createNewVersion) {
       await createAppStoreVersion(appId, version, platform, token);
       versionCreated = true;
     }
-    core.info(`Action: ${action}, Version: ${version}, BuildNumber: ${buildNumber}`);
-    core.setOutput("version", version);
-    core.setOutput("buildNumber", buildNumber);
+    core.info(
+      `Action: ${action}, Version: ${version || "N/A"}, BuildNumber: ${buildNumber || "N/A"}`
+    );
+    core.setOutput("version", version || "");
+    core.setOutput("buildNumber", buildNumber || "");
     core.setOutput("action", action);
     core.setOutput("versionCreated", versionCreated);
   } catch (error) {
