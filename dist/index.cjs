@@ -34693,7 +34693,7 @@ var require_api2 = __commonJS({
         throw error;
       }
     }
-    async function createAppStoreVersion(appId, versionString, platform, token) {
+    async function createAppStoreVersion2(appId, versionString, platform, token) {
       const url = `https://api.appstoreconnect.apple.com/v1/appStoreVersions`;
       const headers = {
         "Authorization": `Bearer ${token}`,
@@ -34730,7 +34730,7 @@ var require_api2 = __commonJS({
     }
     module2.exports = {
       callApi: callApi2,
-      createAppStoreVersion
+      createAppStoreVersion: createAppStoreVersion2
     };
   }
 });
@@ -34794,7 +34794,7 @@ var require_versioning = __commonJS({
 // src/main.js
 var core = require_core();
 var { generateJwt } = require_jwt();
-var { callApi } = require_api2();
+var { callApi, createAppStoreVersion } = require_api2();
 var { determineNextVersionAndBuild } = require_versioning();
 async function run() {
   try {
@@ -34830,7 +34830,7 @@ async function run() {
     core.info(`Live version: ${liveVersion}, Live max build: ${liveMaxBuild}`);
     const { version, buildNumber, action } = await determineNextVersionAndBuild(liveVersion, liveMaxBuild, appId, token, callApi);
     if (action === "new_version" && createNewVersion) {
-      await callApi.createAppStoreVersion(appId, version, platform, token);
+      await createAppStoreVersion(appId, version, platform, token);
       versionCreated = true;
     }
     core.info(`Action: ${action}, Version: ${version}, BuildNumber: ${buildNumber}`);

@@ -1,6 +1,6 @@
 const core = require('@actions/core');
 const { generateJwt } = require('./jwt');
-const { callApi } = require('./api');
+const { callApi, createAppStoreVersion } = require('./api');
 const { determineNextVersionAndBuild } = require('./versioning');
 
 async function run() {
@@ -49,7 +49,7 @@ async function run() {
 
     // 新しいバージョンを作成する必要がある場合、かつフラグがtrueの場合のみ作成
     if (action === 'new_version' && createNewVersion) {
-      await callApi.createAppStoreVersion(appId, version, platform, token);
+      await createAppStoreVersion(appId, version, platform, token);
       versionCreated = true;
     }
 
