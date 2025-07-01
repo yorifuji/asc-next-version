@@ -1,6 +1,9 @@
-const { determineNextVersionAndBuild } = require('../src/versioning');
+const { determineNextVersionAndBuild } = require('../src/services/versioningService');
 
 jest.mock('@actions/core');
+jest.mock('../src/services/appStoreService');
+
+const { getMaxBuildNumber } = require('../src/services/appStoreService');
 
 describe('determineNextVersionAndBuild', () => {
   beforeEach(() => {
@@ -13,92 +16,82 @@ describe('determineNextVersionAndBuild', () => {
   test('新しいバージョンが作成される場合', async () => {
     const liveVersion = '1.0.0';
     const liveMaxBuild = 10;
-    const mockCallApi = jest.fn();
 
     // nextVersionが存在しない場合をモック
-    mockCallApi.mockResolvedValueOnce({ data: [] });
+    const appStoreService = require('../src/services/appStoreService');
+    appStoreService.checkVersionExists = jest.fn().mockResolvedValueOnce(null);
 
-    const result = await determineNextVersionAndBuild(liveVersion, liveMaxBuild, mockAppId, mockToken, mockCallApi);
+    const result = await determineNextVersionAndBuild(
+      liveVersion,
+      liveMaxBuild,
+      mockAppId,
+      mockToken,
+    );
 
     expect(result).toEqual({
       version: '1.0.1',
       buildNumber: 11,
       action: 'new_version',
     });
-    expect(mockCallApi).toHaveBeenCalledWith(
-      `https://api.appstoreconnect.apple.com/v1/apps/${mockAppId}/appStoreVersions?filter[versionString]=1.0.1`,
-      mockToken
-    );
+    expect(appStoreService.checkVersionExists).toHaveBeenCalledWith(mockAppId, '1.0.1', mockToken);
   });
 
   test('既存のバージョンがあり、ビルドがインクリメントされる場合', async () => {
     const liveVersion = '1.0.0';
     const liveMaxBuild = 10;
-    const mockCallApi = jest.fn();
 
     // nextVersionが存在し、状態がPREPARE_FOR_SUBMISSIONの場合をモック
-    mockCallApi.mockResolvedValueOnce({
-      data: [{
-        attributes: { appStoreState: 'PREPARE_FOR_SUBMISSION' }
-      }]
-    });
-    // preReleaseVersionsのモック
-    mockCallApi.mockResolvedValueOnce({
-      data: [{
-        id: 'pre-release-id',
-        attributes: { version: '1.0.1' }
-      }]
-    });
-    // buildsのモック
-    mockCallApi.mockResolvedValueOnce({
-      data: [{
-        attributes: { version: '20' }
-      }]
-    });
+    const nextVersionInfo = {
+      attributes: { appStoreState: 'PREPARE_FOR_SUBMISSION' },
+      id: 'version-id',
+    };
 
-    const result = await determineNextVersionAndBuild(liveVersion, liveMaxBuild, mockAppId, mockToken, mockCallApi);
+    const appStoreService = require('../src/services/appStoreService');
+    appStoreService.checkVersionExists = jest.fn().mockResolvedValueOnce(nextVersionInfo);
+
+    // getMaxBuildNumber のモック（既存バージョンの最大build番号として20を返す）
+    getMaxBuildNumber.mockResolvedValueOnce(20);
+
+    const result = await determineNextVersionAndBuild(
+      liveVersion,
+      liveMaxBuild,
+      mockAppId,
+      mockToken,
+    );
 
     expect(result).toEqual({
       version: '1.0.1',
       buildNumber: 21,
       action: 'increment_build',
     });
-    expect(mockCallApi).toHaveBeenCalledWith(
-      `https://api.appstoreconnect.apple.com/v1/apps/${mockAppId}/appStoreVersions?filter[versionString]=1.0.1`,
-      mockToken
-    );
-    expect(mockCallApi).toHaveBeenCalledWith(
-      `https://api.appstoreconnect.apple.com/v1/preReleaseVersions?filter[version]=1.0.1&filter[app]=${mockAppId}&limit=1`,
-      mockToken
-    );
-    expect(mockCallApi).toHaveBeenCalledWith(
-      `https://api.appstoreconnect.apple.com/v1/builds?filter[preReleaseVersion]=pre-release-id&sort=-version&limit=1`,
-      mockToken
-    );
+    expect(appStoreService.checkVersionExists).toHaveBeenCalledWith(mockAppId, '1.0.1', mockToken);
+    // getMaxBuildNumber が適切なパラメータで呼ばれることを確認
+    expect(getMaxBuildNumber).toHaveBeenCalledWith(nextVersionInfo, mockAppId, mockToken);
   });
 
   test('既存のバージョンがあり、スキップされる場合', async () => {
     const liveVersion = '1.0.0';
     const liveMaxBuild = 10;
-    const mockCallApi = jest.fn();
 
     // nextVersionが存在し、状態がREADY_FOR_SALEの場合をモック
-    mockCallApi.mockResolvedValueOnce({
-      data: [{
-        attributes: { appStoreState: 'READY_FOR_SALE' }
-      }]
-    });
+    const appStoreService = require('../src/services/appStoreService');
+    const nextVersionInfo = {
+      attributes: { appStoreState: 'READY_FOR_SALE' },
+    };
+    appStoreService.checkVersionExists = jest.fn().mockResolvedValueOnce(nextVersionInfo);
 
-    const result = await determineNextVersionAndBuild(liveVersion, liveMaxBuild, mockAppId, mockToken, mockCallApi);
+    const result = await determineNextVersionAndBuild(
+      liveVersion,
+      liveMaxBuild,
+      mockAppId,
+      mockToken,
+    );
 
     expect(result).toEqual({
       version: undefined,
       buildNumber: undefined,
       action: 'skip',
     });
-    expect(mockCallApi).toHaveBeenCalledWith(
-      `https://api.appstoreconnect.apple.com/v1/apps/${mockAppId}/appStoreVersions?filter[versionString]=1.0.1`,
-      mockToken
-    );
+    expect(appStoreService.checkVersionExists).toHaveBeenCalledWith(mockAppId, '1.0.1', mockToken);
   });
 });

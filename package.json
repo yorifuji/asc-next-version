@@ -1,31 +1,85 @@
 {
   "name": "asc-next-version",
   "version": "1.0.0",
-  "description": "",
-  "main": "src/main.js",
+  "description": "GitHub Action to determine next version and build number for App Store Connect",
+  "main": "dist/index.cjs",
+  "type": "commonjs",
   "directories": {
-    "doc": "docs"
-  },
-  "jest": {
-    "type": "module"
+    "doc": "docs",
+    "test": "test"
   },
   "scripts": {
-    "test": "jest test/jwt.test.js test/api.test.js test/versioning.test.js",
-    "build": "esbuild src/main.js --bundle --platform=node --format=cjs --outfile=dist/index.cjs"
+    "test": "jest",
+    "test:unit": "jest test/unit",
+    "test:integration": "jest test/integration",
+    "test:e2e": "jest test/e2e",
+    "test:coverage": "jest --coverage",
+    "test:watch": "jest --watch",
+    "test:ci": "jest --ci --coverage --maxWorkers=2",
+    "build": "esbuild src/index.js --bundle --minify --platform=node --target=node20 --outfile=dist/index.cjs --format=cjs --banner:js='// @ts-nocheck'",
+    "build:dev": "esbuild src/index.js --bundle --platform=node --target=node20 --outfile=dist/index.cjs --format=cjs --sourcemap",
+    "watch": "npm run build:dev -- --watch",
+    "clean": "rm -rf dist coverage .nyc_output",
+    "lint": "eslint src test --ext .js",
+    "lint:fix": "eslint src test --ext .js --fix",
+    "format": "prettier --write \"src/**/*.js\" \"test/**/*.js\"",
+    "format:check": "prettier --check \"src/**/*.js\" \"test/**/*.js\"",
+    "verify": "npm run lint && npm run format:check && npm run test",
+    "verify:fix": "npm run lint:fix && npm run format && npm run test",
+    "precommit": "npm run verify",
+    "prepare": "npm run build",
+    "prepublishOnly": "npm run clean && npm run verify && npm run build",
+    "version": "npm run verify && git add -A",
+    "postversion": "git push && git push --tags"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "github-actions",
+    "app-store-connect",
+    "ios",
+    "macos",
+    "versioning",
+    "build-number"
+  ],
+  "author": "yorifuji",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yorifuji/asc-next-version.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yorifuji/asc-next-version/issues"
+  },
+  "homepage": "https://github.com/yorifuji/asc-next-version#readme",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "dependencies": {
     "@actions/core": "^1.11.1",
     "@actions/github": "^6.0.1",
-    "axios": "^1.10.0"
+    "axios": "^1.10.0",
+    "jsonwebtoken": "^9.0.2"
   },
   "devDependencies": {
     "@babel/core": "^7.27.7",
     "@babel/preset-env": "^7.27.2",
     "babel-jest": "^30.0.2",
     "esbuild": "^0.25.5",
-    "jest": "^30.0.3"
+    "eslint": "^8.57.0",
+    "jest": "^30.0.3",
+    "prettier": "3.6.2"
+  },
+  "files": [
+    "dist/",
+    "action.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/yorifuji"
   }
 }

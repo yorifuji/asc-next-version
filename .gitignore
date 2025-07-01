@@ -102,3 +102,28 @@ out
 
 # Stores VSCode versions used for testing VSCode extensions
 .vscode-test
+
+.claude/settings.local.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Build artifacts
+dist/
+
+# Test artifacts
+coverage/
+.nyc_output/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# OS files
+Thumbs.db

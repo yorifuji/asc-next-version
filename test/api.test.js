@@ -1,4 +1,4 @@
-const { callApi, createAppStoreVersion } = require('../src/api');
+const { get, createAppStoreVersion } = require('../src/clients/appStoreClient');
 
 jest.mock('@actions/core');
 jest.mock('axios', () => ({
@@ -6,7 +6,7 @@ jest.mock('axios', () => ({
   post: jest.fn(), // postメソッドもモックする
 }));
 
-describe('callApi', () => {
+describe('get', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -18,12 +18,12 @@ describe('callApi', () => {
 
     require('axios').get.mockResolvedValue({ data: mockResponseData });
 
-    const result = await callApi(url, token);
+    const result = await get(url, token);
 
     expect(require('axios').get).toHaveBeenCalledWith(url, {
       headers: {
-        'Authorization': `Bearer ${token}`
-      }
+        Authorization: `Bearer ${token}`,
+      },
     });
     expect(result).toBe(mockResponseData);
   });
@@ -35,8 +35,8 @@ describe('callApi', () => {
 
     require('axios').get.mockRejectedValue(new Error(errorMessage));
 
-    await expect(callApi(url, token)).rejects.toThrow(errorMessage);
-    expect(require('@actions/core').error).toHaveBeenCalledWith(`API call failed: ${errorMessage}`);
+    await expect(get(url, token)).rejects.toThrow(errorMessage);
+    expect(require('@actions/core').error).toHaveBeenCalledWith(`API GET failed: ${errorMessage}`);
   });
 });
 
@@ -77,13 +77,15 @@ describe('createAppStoreVersion', () => {
       },
       {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-      }
+      },
     );
     expect(result).toBe(mockResponseData);
-    expect(require('@actions/core').info).toHaveBeenCalledWith(`Successfully created App Store Version ${versionString} for app ${appId}`);
+    expect(require('@actions/core').info).toHaveBeenCalledWith(
+      `Successfully created App Store Version ${versionString} for app ${appId}`,
+    );
   });
 
   test('App Store Versionの作成が失敗し、エラーをスローすること', async () => {
@@ -95,7 +97,9 @@ describe('createAppStoreVersion', () => {
 
     require('axios').post.mockRejectedValue(new Error(errorMessage));
 
-    await expect(createAppStoreVersion(appId, versionString, platform, token)).rejects.toThrow(errorMessage);
-    expect(require('@actions/core').error).toHaveBeenCalledWith(`Failed to create App Store Version: ${errorMessage}`);
+    await expect(createAppStoreVersion(appId, versionString, platform, token)).rejects.toThrow(
+      errorMessage,
+    );
+    expect(require('@actions/core').error).toHaveBeenCalledWith(`API POST failed: ${errorMessage}`);
   });
 });

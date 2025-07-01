@@ -132,3 +132,172 @@ jobs:
           #   -currentProjectVersion "${BUILD_NUMBER}" \
           #   -marketingVersion "${APP_VERSION}"
 ```
+
+## 開発ワークフロー
+
+このプロジェクトへの貢献や開発を行う際のワークフローガイドです。
+
+### 環境セットアップ
+
+1. **リポジトリのクローン**
+   ```bash
+   git clone https://github.com/yorifuji/asc-next-version.git
+   cd asc-next-version
+   ```
+
+2. **依存関係のインストール**
+   ```bash
+   npm install
+   ```
+
+3. **開発環境の確認**
+   ```bash
+   node --version  # v20.0.0以上が必要
+   npm --version   # v10.0.0以上を推奨
+   ```
+
+### 開発フロー
+
+#### 1. 新機能開発・バグ修正
+
+```bash
+# 新しいブランチを作成
+git checkout -b feature/your-feature-name
+
+# 開発モードでビルドを監視
+npm run watch
+
+# 別ターミナルでテストを監視モードで実行
+npm run test:watch
+```
+
+#### 2. コード品質の確保
+
+開発中は以下のコマンドを使用してコード品質を維持：
+
+```bash
+# ESLintでコードをチェック
+npm run lint
+
+# 自動修正可能な問題を修正
+npm run lint:fix
+
+# Prettierでコードをフォーマット
+npm run format
+
+# 全ての品質チェックを実行
+npm run verify
+```
+
+#### 3. テストの実行
+
+```bash
+# 全テストを実行
+npm test
+
+# 特定の種類のテストのみ実行
+npm run test:unit        # 単体テストのみ
+npm run test:integration # 統合テストのみ
+
+# カバレッジレポート付きでテスト
+npm run test:coverage
+
+# CI環境向けのテスト
+npm run test:ci
+```
+
+#### 4. ビルド
+
+```bash
+# 開発ビルド（ソースマップ付き）
+npm run build:dev
+
+# 本番ビルド（最適化・圧縮）
+npm run build
+
+# ビルド成果物をクリーンアップ
+npm run clean
+```
+
+### コミット前のチェックリスト
+
+1. **コードスタイルの確認**
+   ```bash
+   npm run verify
+   ```
+
+2. **自動修正の適用**
+   ```bash
+   npm run verify:fix
+   ```
+
+3. **最終確認**
+   - [ ] 全テストが通過している
+   - [ ] ESLintエラーがない
+   - [ ] コードがフォーマットされている
+   - [ ] 不要なconsole.logが削除されている
+   - [ ] 秘匿情報が含まれていない
+
+### プルリクエストの作成
+
+1. **変更をコミット**
+   ```bash
+   git add .
+   git commit -m "feat: 新機能の説明"
+   ```
+
+2. **リモートにプッシュ**
+   ```bash
+   git push origin feature/your-feature-name
+   ```
+
+3. **プルリクエストを作成**
+   - テンプレートに従って説明を記載
+   - 関連するIssueがあればリンク
+   - レビュアーを指定
+
+### よく使うnpmスクリプト
+
+| コマンド | 説明 |
+|---------|------|
+| `npm test` | 全テストを実行 |
+| `npm run test:watch` | ファイル変更を監視してテストを自動実行 |
+| `npm run build` | 本番用ビルド |
+| `npm run watch` | ファイル変更を監視して自動ビルド |
+| `npm run lint:fix` | ESLintの自動修正 |
+| `npm run format` | Prettierでコードをフォーマット |
+| `npm run verify` | リント、フォーマット、テストを一括実行 |
+| `npm run clean` | ビルド成果物とカバレッジレポートを削除 |
+
+### トラブルシューティング
+
+#### ビルドエラーが発生する場合
+```bash
+npm run clean
+npm install
+npm run build
+```
+
+#### テストが失敗する場合
+```bash
+# キャッシュをクリアしてテストを実行
+npm test -- --clearCache
+npm test
+```
+
+#### ESLintエラーが解決できない場合
+```bash
+# 自動修正を試す
+npm run lint:fix
+
+# それでも解決しない場合は手動で修正
+npm run lint
+```
+
+### アーキテクチャガイドライン
+
+このプロジェクトはクリーンアーキテクチャの原則に従っています。詳細は[アーキテクチャドキュメント](docs/ARCHITECTURE.md)を参照してください。
+
+### 貢献ガイドライン
+
+詳細な貢献方法については[CONTRIBUTING.md](CONTRIBUTING.md)を参照してください。
