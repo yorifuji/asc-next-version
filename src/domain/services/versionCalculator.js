@@ -23,17 +23,17 @@ class VersionCalculator {
     }
 
     switch (incrementType) {
-      case 'patch':
-        return currentVersion.incrementPatch();
-      case 'minor':
-        return currentVersion.incrementMinor();
-      case 'major':
-        return currentVersion.incrementMajor();
-      default:
-        throw new BusinessLogicError(
-          `Invalid increment type: ${incrementType}`,
-          'Invalid increment type',
-        );
+    case 'patch':
+      return currentVersion.incrementPatch();
+    case 'minor':
+      return currentVersion.incrementMinor();
+    case 'major':
+      return currentVersion.incrementMajor();
+    default:
+      throw new BusinessLogicError(
+        `Invalid increment type: ${incrementType}`,
+        'Invalid increment type',
+      );
     }
   }
 
