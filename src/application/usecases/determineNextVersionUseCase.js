@@ -70,7 +70,8 @@ class DetermineNextVersionUseCase {
   async _getLiveVersion(appId) {
     const versions = await this.appStoreClient.getAppStoreVersions(appId, {
       state: APP_STORE_STATES.READY_FOR_SALE,
-      limit: 1,
+      sort: '-versionString',
+      limit: 10,
     });
 
     if (versions.length === 0) {
@@ -80,7 +81,29 @@ class DetermineNextVersionUseCase {
       );
     }
 
-    const liveVersion = versions[0];
+    // Debug: Log all returned versions
+    console.info(`Found ${versions.length} versions from API:`);
+    versions.forEach((v, index) => {
+      console.info(`  [${index}] ${v.version} (${v.state})`);
+    });
+
+    // Double-check: filter only READY_FOR_SALE versions
+    const readyForSaleVersions = versions.filter(v => v.state === APP_STORE_STATES.READY_FOR_SALE);
+    
+    if (readyForSaleVersions.length === 0) {
+      throw new BusinessLogicError(
+        'No live version found for app. This action requires a published app.',
+        'NO_LIVE_VERSION',
+      );
+    }
+
+    console.info(`Filtered to ${readyForSaleVersions.length} READY_FOR_SALE versions`);
+
+    // Sort by version string descending (latest first)
+    readyForSaleVersions.sort((a, b) => b.version.compareTo(a.version));
+
+    // Get the latest READY_FOR_SALE version
+    const liveVersion = readyForSaleVersions[0];
 
     // Get build number for live version
     const buildNumber = await this.appStoreClient.getBuildForVersion(liveVersion.id);

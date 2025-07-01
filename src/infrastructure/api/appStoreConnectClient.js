@@ -51,6 +51,9 @@ class AppStoreConnectClient {
     if (filters.platform) {
       params['filter[platform]'] = filters.platform;
     }
+    if (filters.sort) {
+      params.sort = filters.sort;
+    }
     if (filters.limit) {
       params.limit = filters.limit;
     }
