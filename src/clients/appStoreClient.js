@@ -70,7 +70,7 @@ async function getAppStoreVersions(appId, filters = {}, token) {
   }
 
   if (queryParams.length > 0) {
-    url += '?' + queryParams.join('&');
+    url += `?${queryParams.join('&')}`;
   }
 
   return await get(url, token);
@@ -96,7 +96,7 @@ async function getPreReleaseVersions(appId, versionString, token) {
  * Get builds with filters
  */
 async function getBuilds(filters = {}, token) {
-  let url = `https://api.appstoreconnect.apple.com/v1/builds`;
+  let url = 'https://api.appstoreconnect.apple.com/v1/builds';
 
   const queryParams = [];
   if (filters.preReleaseVersion) {
@@ -116,7 +116,7 @@ async function getBuilds(filters = {}, token) {
   }
 
   if (queryParams.length > 0) {
-    url += '?' + queryParams.join('&');
+    url += `?${queryParams.join('&')}`;
   }
 
   return await get(url, token);
@@ -126,7 +126,7 @@ async function getBuilds(filters = {}, token) {
  * Create a new app store version
  */
 async function createAppStoreVersion(appId, versionString, platform, token) {
-  const url = `https://api.appstoreconnect.apple.com/v1/appStoreVersions`;
+  const url = 'https://api.appstoreconnect.apple.com/v1/appStoreVersions';
   const data = {
     data: {
       type: 'appStoreVersions',

@@ -24,7 +24,7 @@ module.exports = {
     
     // ベストプラクティス
     'no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
-    'no-console': ['warn', { allow: ['warn', 'error'] }],
+    'no-console': ['warn', { allow: ['info', 'warn', 'error'] }],
     'prefer-const': 'error',
     'no-var': 'error',
     'prefer-arrow-callback': 'error',

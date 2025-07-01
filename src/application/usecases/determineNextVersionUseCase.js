@@ -83,13 +83,15 @@ class DetermineNextVersionUseCase {
 
     // Debug: Log all returned versions
     console.info(`Found ${versions.length} versions from API:`);
-    versions.forEach((v, index) => {
-      console.info(`  [${index}] ${v.version} (${v.state})`);
+    versions.forEach((version, index) => {
+      console.info(`  [${index}] ${version.version} (${version.state})`);
     });
 
     // Double-check: filter only READY_FOR_SALE versions
-    const readyForSaleVersions = versions.filter(v => v.state === APP_STORE_STATES.READY_FOR_SALE);
-    
+    const readyForSaleVersions = versions.filter(
+      (version) => version.state === APP_STORE_STATES.READY_FOR_SALE,
+    );
+
     if (readyForSaleVersions.length === 0) {
       throw new BusinessLogicError(
         'No live version found for app. This action requires a published app.',
@@ -100,7 +102,7 @@ class DetermineNextVersionUseCase {
     console.info(`Filtered to ${readyForSaleVersions.length} READY_FOR_SALE versions`);
 
     // Sort by version string descending (latest first)
-    readyForSaleVersions.sort((a, b) => b.version.compareTo(a.version));
+    readyForSaleVersions.sort((versionA, versionB) => versionB.version.compareTo(versionA.version));
 
     // Get the latest READY_FOR_SALE version
     const liveVersion = readyForSaleVersions[0];

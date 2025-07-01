@@ -1,7 +1,6 @@
 'use strict';
 
 const Version = require('../valueObjects/version');
-const BuildNumber = require('../valueObjects/buildNumber');
 const { VERSION_ACTIONS } = require('../../shared/constants');
 const { BusinessLogicError } = require('../../shared/errors/customErrors');
 

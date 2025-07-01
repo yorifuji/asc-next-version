@@ -23,7 +23,7 @@ async function getLiveVersion(appId, token) {
   );
 
   if (!versionsResponse.data || versionsResponse.data.length === 0) {
-    throw new Error(`No live version found for app. This action requires a published app.`);
+    throw new Error('No live version found for app. This action requires a published app.');
   }
 
   const liveVersionInfo = versionsResponse.data[0];

@@ -19,10 +19,10 @@ function derToJwtSignature(derSignature) {
   }
 
   // Skip total length
-  let totalLength = derSignature[offset++];
-  if (totalLength & 0x80) {
+  const derTotalLength = derSignature[offset++];
+  if (derTotalLength & 0x80) {
     // Long form length - not typically seen in ECDSA signatures
-    offset += totalLength & 0x7f;
+    offset += derTotalLength & 0x7f;
   }
 
   // Read R
@@ -31,7 +31,7 @@ function derToJwtSignature(derSignature) {
   }
 
   const rLength = derSignature[offset++];
-  const r = derSignature.slice(offset, offset + rLength);
+  const rValue = derSignature.slice(offset, offset + rLength);
   offset += rLength;
 
   // Read S
@@ -40,15 +40,15 @@ function derToJwtSignature(derSignature) {
   }
 
   const sLength = derSignature[offset++];
-  const s = derSignature.slice(offset, offset + sLength);
+  const sValue = derSignature.slice(offset, offset + sLength);
 
   // For ES256 (P-256), R and S should be 32 bytes each
   const targetLength = 32;
 
   // Convert R and S to fixed-length buffers
   // Remove leading zeros (0x00) if present due to DER encoding of positive integers
-  let rBuffer = r;
-  let sBuffer = s;
+  let rBuffer = rValue;
+  let sBuffer = sValue;
 
   // Remove leading 0x00 if present
   if (rBuffer[0] === 0x00) {

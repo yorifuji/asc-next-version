@@ -57,7 +57,7 @@ describe('createAppStoreVersion', () => {
     const result = await createAppStoreVersion(appId, versionString, platform, token);
 
     expect(require('axios').post).toHaveBeenCalledWith(
-      `https://api.appstoreconnect.apple.com/v1/appStoreVersions`,
+      'https://api.appstoreconnect.apple.com/v1/appStoreVersions',
       {
         data: {
           type: 'appStoreVersions',

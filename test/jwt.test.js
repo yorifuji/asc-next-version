@@ -52,11 +52,11 @@ describe('generateJwt', () => {
     verify.end();
 
     // JWT形式の署名をDER形式に変換して検証
-    const r = signature.slice(0, 32);
-    const s = signature.slice(32, 64);
+    const rComponent = signature.slice(0, 32);
+    const sComponent = signature.slice(32, 64);
 
     // DER形式に変換
-    const derSignature = createDerSignature(r, s);
+    const derSignature = createDerSignature(rComponent, sComponent);
 
     const isValid = verify.verify(publicKey, derSignature);
     expect(isValid).toBe(true);
@@ -64,33 +64,36 @@ describe('generateJwt', () => {
 });
 
 // JWT形式（R||S）からDER形式への変換ヘルパー関数
-function createDerSignature(r, s) {
+function createDerSignature(rComponent, sComponent) {
   // Remove leading zeros
-  while (r.length > 1 && r[0] === 0x00 && !(r[1] & 0x80)) {
-    r = r.slice(1);
+  let rBuffer = rComponent;
+  let sBuffer = sComponent;
+
+  while (rBuffer.length > 1 && rBuffer[0] === 0x00 && !(rBuffer[1] & 0x80)) {
+    rBuffer = rBuffer.slice(1);
   }
-  while (s.length > 1 && s[0] === 0x00 && !(s[1] & 0x80)) {
-    s = s.slice(1);
+  while (sBuffer.length > 1 && sBuffer[0] === 0x00 && !(sBuffer[1] & 0x80)) {
+    sBuffer = sBuffer.slice(1);
   }
 
   // Add leading zero if high bit is set (to maintain positive sign)
-  if (r[0] & 0x80) {
-    r = Buffer.concat([Buffer.from([0x00]), r]);
+  if (rBuffer[0] & 0x80) {
+    rBuffer = Buffer.concat([Buffer.from([0x00]), rBuffer]);
   }
-  if (s[0] & 0x80) {
-    s = Buffer.concat([Buffer.from([0x00]), s]);
+  if (sBuffer[0] & 0x80) {
+    sBuffer = Buffer.concat([Buffer.from([0x00]), sBuffer]);
   }
 
-  const rLength = r.length;
-  const sLength = s.length;
+  const rLength = rBuffer.length;
+  const sLength = sBuffer.length;
   const totalLength = 2 + rLength + 2 + sLength;
 
   const der = Buffer.concat([
     Buffer.from([0x30, totalLength]),
     Buffer.from([0x02, rLength]),
-    r,
+    rBuffer,
     Buffer.from([0x02, sLength]),
-    s,
+    sBuffer,
   ]);
 
   return der;
