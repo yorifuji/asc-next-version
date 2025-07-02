@@ -75,6 +75,7 @@ export class VersionCalculator {
       // Use the maximum of the existing version's build number and the current max build
       let nextBuild: BuildNumber;
       
+      console.info(`[DEBUG] Existing version build: ${nextVersion.buildNumber.getValue()}, Current max build: ${currentMaxBuild.getValue()}`);
       
       if (nextVersion.buildNumber.getValue() > 0) {
         // If the existing version has builds, check which is higher
@@ -82,10 +83,14 @@ export class VersionCalculator {
         const currentMaxNextBuild = currentMaxBuild.increment();
         
         
+        console.info(`[DEBUG] Existing version next: ${existingVersionNextBuild.getValue()}, Current max next: ${currentMaxNextBuild.getValue()}`);
+        
         // Use the higher build number to avoid conflicts
         nextBuild = existingVersionNextBuild.getValue() > currentMaxNextBuild.getValue() 
           ? existingVersionNextBuild 
           : currentMaxNextBuild;
+          
+        console.info(`[DEBUG] Selected build number: ${nextBuild.getValue()}`);
       } else {
         // No builds for this version yet, use current max + 1
         nextBuild = currentMaxBuild.increment();
