@@ -1,12 +1,33 @@
-const appStoreService = require('./appStoreService');
-const versioningService = require('./versioningService');
+import * as appStoreService from './appStoreService.js';
+import * as versioningService from './versioningService.js';
+
+interface DetermineNextVersionParams {
+  bundleId: string;
+  platform: string;
+  createNewVersion: boolean;
+  token: string;
+}
+
+interface DetermineNextVersionResult {
+  version: string;
+  buildNumber: string | number;
+  action: string;
+  versionCreated: boolean;
+  liveVersion: string;
+  liveMaxBuild: number;
+}
 
 /**
  * Main orchestration logic for determining next version and build number
  * This service coordinates between different services and contains the main business logic
  * separated from GitHub Actions specific code
  */
-async function determineNextVersion({ bundleId, platform, createNewVersion, token }) {
+export async function determineNextVersion({
+  bundleId,
+  platform,
+  createNewVersion,
+  token,
+}: DetermineNextVersionParams): Promise<DetermineNextVersionResult> {
   let versionCreated = false;
 
   // Find app by bundle ID
@@ -29,7 +50,7 @@ async function determineNextVersion({ bundleId, platform, createNewVersion, toke
 
   // Create new version if needed and flag is true
   if (action === 'new_version' && createNewVersion) {
-    await appStoreService.createNewVersion(appId, version, platform, token);
+    await appStoreService.createNewVersion(appId, version!, platform, token);
     versionCreated = true;
   }
 
@@ -42,7 +63,3 @@ async function determineNextVersion({ bundleId, platform, createNewVersion, toke
     liveMaxBuild,
   };
 }
-
-module.exports = {
-  determineNextVersion,
-};

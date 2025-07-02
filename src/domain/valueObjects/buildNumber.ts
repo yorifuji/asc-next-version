@@ -1,12 +1,12 @@
-'use strict';
-
-const { ValidationError } = require('../../shared/errors/customErrors');
+import { ValidationError } from '../../shared/errors/customErrors.js';
 
 /**
  * Value object representing a build number
  */
-class BuildNumber {
-  constructor(value) {
+export class BuildNumber {
+  private readonly _value: number;
+
+  constructor(value: string | number) {
     let parsedValue = value;
 
     if (typeof value === 'string') {
@@ -21,7 +21,7 @@ class BuildNumber {
       parsedValue = parseInt(value, 10);
     }
 
-    if (!Number.isInteger(parsedValue) || parsedValue < 0) {
+    if (typeof parsedValue !== 'number' || !Number.isInteger(parsedValue) || parsedValue < 0) {
       throw new ValidationError(
         'Build number must be a non-negative integer',
         'buildNumber',
@@ -29,34 +29,34 @@ class BuildNumber {
       );
     }
 
-    this._value = parsedValue;
+    this._value = parsedValue as number;
   }
 
   /**
    * Get the build number value
    */
-  getValue() {
+  getValue(): number {
     return this._value;
   }
 
   /**
    * Get the build number as a string
    */
-  toString() {
+  toString(): string {
     return String(this._value);
   }
 
   /**
    * Create a new build number incremented by 1
    */
-  increment() {
+  increment(): BuildNumber {
     return new BuildNumber(this._value + 1);
   }
 
   /**
    * Compare with another build number
    */
-  compareTo(other) {
+  compareTo(other: BuildNumber): number {
     if (!(other instanceof BuildNumber)) {
       throw new ValidationError(
         'Can only compare with another BuildNumber instance',
@@ -71,26 +71,24 @@ class BuildNumber {
   /**
    * Check if build numbers are equal
    */
-  equals(other) {
+  equals(other: BuildNumber): boolean {
     return this.compareTo(other) === 0;
   }
 
   /**
    * Check if this build number is greater than another
    */
-  isGreaterThan(other) {
+  isGreaterThan(other: BuildNumber): boolean {
     return this.compareTo(other) > 0;
   }
 
   /**
    * Create a BuildNumber from various input types
    */
-  static from(value) {
+  static from(value: BuildNumber | string | number): BuildNumber {
     if (value instanceof BuildNumber) {
       return value;
     }
     return new BuildNumber(value);
   }
 }
-
-module.exports = BuildNumber;

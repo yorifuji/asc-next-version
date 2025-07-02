@@ -1,10 +1,32 @@
-'use strict';
+interface AppParams {
+  id: string;
+  bundleId: string;
+  name: string;
+  sku: string;
+  primaryLocale: string;
+}
+
+interface ApiResponseData {
+  id: string;
+  attributes: {
+    bundleId: string;
+    name: string;
+    sku: string;
+    primaryLocale: string;
+  };
+}
 
 /**
  * Entity representing an App Store Connect app
  */
-class App {
-  constructor({ id, bundleId, name, sku, primaryLocale }) {
+export class App {
+  id: string;
+  bundleId: string;
+  name: string;
+  sku: string;
+  primaryLocale: string;
+
+  constructor({ id, bundleId, name, sku, primaryLocale }: AppParams) {
     this.id = id;
     this.bundleId = bundleId;
     this.name = name;
@@ -15,7 +37,7 @@ class App {
   /**
    * Convert to plain object
    */
-  toObject() {
+  toObject(): AppParams {
     return {
       id: this.id,
       bundleId: this.bundleId,
@@ -28,7 +50,7 @@ class App {
   /**
    * Create from API response
    */
-  static fromApiResponse(data) {
+  static fromApiResponse(data: ApiResponseData): App {
     return new App({
       id: data.id,
       bundleId: data.attributes.bundleId,
@@ -38,5 +60,3 @@ class App {
     });
   }
 }
-
-module.exports = App;

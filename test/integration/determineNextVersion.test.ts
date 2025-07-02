@@ -1,47 +1,42 @@
-'use strict';
-
-const JwtGenerator = require('../../src/infrastructure/auth/jwtGenerator');
-const AppStoreConnectClient = require('../../src/infrastructure/api/appStoreConnectClient');
-const DetermineNextVersionUseCase = require('../../src/application/usecases/determineNextVersionUseCase');
-const { APP_STORE_STATES, VERSION_ACTIONS, PLATFORMS } = require('../../src/shared/constants');
+import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { JwtGenerator } from '../../src/infrastructure/auth/jwtGenerator.js';
+import { AppStoreConnectClient } from '../../src/infrastructure/api/appStoreConnectClient.js';
+import { DetermineNextVersionUseCase } from '../../src/application/usecases/determineNextVersionUseCase.js';
+import { APP_STORE_STATES, PLATFORMS, VERSION_ACTIONS } from '../../src/shared/constants/index.js';
+import axios from 'axios';
+import jwt from 'jsonwebtoken';
 
 // Mock modules
-jest.mock('axios');
-jest.mock('jsonwebtoken');
+vi.mock('axios');
+vi.mock('jsonwebtoken');
 
 describe('DetermineNextVersion Integration Test', () => {
-  let mockAxios;
-  let mockJwt;
-  let mockHttpClient;
-  let jwtGenerator;
-  let appStoreClient;
-  let useCase;
+  let mockHttpClient: any;
+  let jwtGenerator: JwtGenerator;
+  let appStoreClient: AppStoreConnectClient;
+  let useCase: DetermineNextVersionUseCase;
 
   beforeEach(() => {
-    jest.clearAllMocks();
-
-    // Setup mocks
-    mockAxios = require('axios');
-    mockJwt = require('jsonwebtoken');
+    vi.clearAllMocks();
 
     // Mock JWT operations
-    mockJwt.sign.mockReturnValue('mocked-jwt-token');
-    mockJwt.decode.mockReturnValue({ exp: Math.floor(Date.now() / 1000) + 3600 });
+    vi.mocked(jwt.sign).mockReturnValue('mocked-jwt-token' as any);
+    vi.mocked(jwt.decode).mockReturnValue({ exp: Math.floor(Date.now() / 1000) + 3600 } as any);
 
     // Create mock HTTP client instance
     mockHttpClient = {
       defaults: { headers: { common: {} } },
       interceptors: {
-        request: { use: jest.fn() },
-        response: { use: jest.fn() },
+        request: { use: vi.fn() },
+        response: { use: vi.fn() },
       },
-      get: jest.fn(),
-      post: jest.fn(),
-      patch: jest.fn(),
-      delete: jest.fn(),
+      get: vi.fn(),
+      post: vi.fn(),
+      patch: vi.fn(),
+      delete: vi.fn(),
     };
 
-    mockAxios.create.mockReturnValue(mockHttpClient);
+    vi.mocked(axios.create).mockReturnValue(mockHttpClient);
 
     // Setup services
     jwtGenerator = new JwtGenerator('issuer-123', 'key-123', 'fake-private-key');
@@ -62,7 +57,7 @@ describe('DetermineNextVersion Integration Test', () => {
               {
                 id: 'app-123',
                 attributes: {
-                  bundleId: bundleId,
+                  bundleId,
                   name: 'Example App',
                   sku: 'EXAMPLE123',
                   primaryLocale: 'en-US',
@@ -129,13 +124,13 @@ describe('DetermineNextVersion Integration Test', () => {
       // Assert
       expect(result).toMatchObject({
         app: {
-          bundleId: bundleId,
+          bundleId,
           name: 'Example App',
         },
         liveVersion: '1.0.0',
         liveBuildNumber: 5,
         version: '1.0.1',
-        buildNumber: 6,
+        buildNumber: '6',
         action: VERSION_ACTIONS.NEW_VERSION,
         versionCreated: true,
       });
@@ -154,7 +149,7 @@ describe('DetermineNextVersion Integration Test', () => {
               {
                 id: 'app-123',
                 attributes: {
-                  bundleId: bundleId,
+                  bundleId,
                   name: 'Example App',
                 },
               },
@@ -225,7 +220,7 @@ describe('DetermineNextVersion Integration Test', () => {
       // Assert
       expect(result).toMatchObject({
         version: '1.0.1',
-        buildNumber: 8,
+        buildNumber: '8',
         action: VERSION_ACTIONS.INCREMENT_BUILD,
         versionCreated: false,
       });
@@ -244,7 +239,7 @@ describe('DetermineNextVersion Integration Test', () => {
               {
                 id: 'app-123',
                 attributes: {
-                  bundleId: bundleId,
+                  bundleId,
                   name: 'Example App',
                 },
               },
@@ -379,7 +374,7 @@ describe('DetermineNextVersion Integration Test', () => {
               {
                 id: 'app-123',
                 attributes: {
-                  bundleId: bundleId,
+                  bundleId,
                   name: 'Example App',
                 },
               },
@@ -457,7 +452,7 @@ describe('DetermineNextVersion Integration Test', () => {
         liveVersion: '1.0.24',
         liveBuildNumber: 86,
         version: '1.0.25',
-        buildNumber: 87,
+        buildNumber: '87',
         action: VERSION_ACTIONS.NEW_VERSION,
         versionCreated: true,
       });

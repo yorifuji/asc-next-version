@@ -1,27 +1,48 @@
-'use strict';
+import * as core from '@actions/core';
+import { JwtGenerator } from '../../infrastructure/auth/jwtGenerator.js';
+import { AppStoreConnectClient } from '../../infrastructure/api/appStoreConnectClient.js';
+import { DetermineNextVersionUseCase } from '../../application/usecases/determineNextVersionUseCase.js';
+import { PLATFORMS } from '../../shared/constants/index.js';
+import type { Platform } from '../../shared/constants/index.js';
+import { ValidationError } from '../../shared/errors/customErrors.js';
+import type { ErrorWithDetails } from '../../shared/types/api.js';
 
-const core = require('@actions/core');
-const JwtGenerator = require('../../infrastructure/auth/jwtGenerator');
-const AppStoreConnectClient = require('../../infrastructure/api/appStoreConnectClient');
-const DetermineNextVersionUseCase = require('../../application/usecases/determineNextVersionUseCase');
-const { PLATFORMS } = require('../../shared/constants');
-const { ValidationError } = require('../../shared/errors/customErrors');
+interface Inputs {
+  issuerId: string;
+  keyId: string;
+  key: string;
+  bundleId: string;
+  platform: Platform;
+  createNewVersion: boolean;
+}
+
+interface Result {
+  version: string;
+  buildNumber: string;
+  action: string;
+  versionCreated: boolean;
+  app: {
+    name: string;
+    bundleId: string;
+  };
+  liveVersion: string;
+  liveBuildNumber: number;
+  skipReason?: string;
+}
 
 /**
  * GitHub Action interface
  */
-class GitHubAction {
-  constructor() {
-    this.inputs = null;
-    this.jwtGenerator = null;
-    this.appStoreClient = null;
-    this.useCase = null;
-  }
+export class GitHubAction {
+  private inputs: Inputs | null = null;
+  private jwtGenerator: JwtGenerator | null = null;
+  private appStoreClient: AppStoreConnectClient | null = null;
+  private useCase: DetermineNextVersionUseCase | null = null;
 
   /**
    * Run the action
    */
-  async run() {
+  async run(): Promise<void> {
     try {
       // Read inputs
       this.inputs = this._readInputs();
@@ -30,7 +51,7 @@ class GitHubAction {
       this._initializeComponents();
 
       // Execute use case
-      const result = await this.useCase.execute({
+      const result = await this.useCase!.execute({
         bundleId: this.inputs.bundleId,
         platform: this.inputs.platform,
         createNewVersion: this.inputs.createNewVersion,
@@ -42,19 +63,19 @@ class GitHubAction {
       // Log summary
       this._logSummary(result);
     } catch (error) {
-      this._handleError(error);
+      this._handleError(error as Error);
     }
   }
 
   /**
    * Read and validate inputs
    */
-  _readInputs() {
+  private _readInputs(): Inputs {
     const issuerId = core.getInput('issuer-id', { required: true });
     const keyId = core.getInput('key-id', { required: true });
     const key = core.getInput('key', { required: true });
     const bundleId = core.getInput('bundle-id', { required: true });
-    const platform = core.getInput('platform') || PLATFORMS.IOS;
+    const platform = (core.getInput('platform') || PLATFORMS.IOS) as Platform;
     const createNewVersion = core.getInput('create-new-version') === 'true';
 
     // Validate platform
@@ -79,8 +100,12 @@ class GitHubAction {
   /**
    * Initialize components
    */
-  _initializeComponents() {
-    this.jwtGenerator = new JwtGenerator(this.inputs.issuerId, this.inputs.keyId, this.inputs.key);
+  private _initializeComponents(): void {
+    this.jwtGenerator = new JwtGenerator(
+      this.inputs!.issuerId,
+      this.inputs!.keyId,
+      this.inputs!.key,
+    );
 
     this.appStoreClient = new AppStoreConnectClient(this.jwtGenerator);
     this.useCase = new DetermineNextVersionUseCase(this.appStoreClient);
@@ -89,7 +114,7 @@ class GitHubAction {
   /**
    * Set GitHub Action outputs
    */
-  _setOutputs(result) {
+  private _setOutputs(result: Result): void {
     core.setOutput('version', result.version);
     core.setOutput('buildNumber', result.buildNumber);
     core.setOutput('action', result.action);
@@ -99,7 +124,7 @@ class GitHubAction {
   /**
    * Log summary
    */
-  _logSummary(result) {
+  private _logSummary(result: Result): void {
     core.info('========================================');
     core.info('Next Version Determination Summary:');
     core.info('========================================');
@@ -126,7 +151,7 @@ class GitHubAction {
   /**
    * Handle errors
    */
-  _handleError(error) {
+  private _handleError(error: ErrorWithDetails): void {
     core.error(`Error: ${error.message}`);
 
     if (error.details) {
@@ -140,5 +165,3 @@ class GitHubAction {
     core.setFailed(error.message);
   }
 }
-
-module.exports = GitHubAction;

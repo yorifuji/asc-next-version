@@ -1,14 +1,17 @@
-'use strict';
-
-const jwt = require('jsonwebtoken');
-const { JWT_CONFIG } = require('../../shared/constants');
-const { AuthenticationError, ValidationError } = require('../../shared/errors/customErrors');
+import jwt from 'jsonwebtoken';
+import { JWT_CONFIG } from '../../shared/constants/index.js';
+import { AuthenticationError, ValidationError } from '../../shared/errors/customErrors.js';
+import type { ErrorWithDetails } from '../../shared/types/api.js';
 
 /**
  * JWT generator for App Store Connect API authentication
  */
-class JwtGenerator {
-  constructor(issuerId, keyId, privateKey) {
+export class JwtGenerator {
+  private issuerId: string;
+  private keyId: string;
+  private privateKey: string;
+
+  constructor(issuerId: string, keyId: string, privateKey: string) {
     this._validateInputs(issuerId, keyId, privateKey);
     this.issuerId = issuerId;
     this.keyId = keyId;
@@ -19,7 +22,7 @@ class JwtGenerator {
    * Generate a JWT token
    * @returns {string} JWT token
    */
-  generateToken() {
+  generateToken(): string {
     try {
       const payload = {
         iss: this.issuerId,
@@ -27,7 +30,7 @@ class JwtGenerator {
         aud: JWT_CONFIG.AUDIENCE,
       };
 
-      const options = {
+      const options: jwt.SignOptions = {
         algorithm: JWT_CONFIG.ALGORITHM,
         header: {
           alg: JWT_CONFIG.ALGORITHM,
@@ -38,8 +41,9 @@ class JwtGenerator {
 
       return jwt.sign(payload, this.privateKey, options);
     } catch (error) {
+      const err = error as ErrorWithDetails;
       throw new AuthenticationError(
-        `Failed to generate JWT token: ${error.message}`,
+        `Failed to generate JWT token: ${err.message}`,
         'JWT_GENERATION_FAILED',
       );
     }
@@ -48,7 +52,7 @@ class JwtGenerator {
   /**
    * Validate inputs
    */
-  _validateInputs(issuerId, keyId, privateKey) {
+  private _validateInputs(issuerId: string, keyId: string, privateKey: string): void {
     if (!issuerId || typeof issuerId !== 'string') {
       throw new ValidationError('Issuer ID must be a non-empty string', 'issuerId', issuerId);
     }
@@ -69,7 +73,7 @@ class JwtGenerator {
   /**
    * Format private key to ensure proper format
    */
-  _formatPrivateKey(key) {
+  private _formatPrivateKey(key: string): string {
     // Remove any whitespace and newlines
     const cleanKey = key.trim();
 
@@ -85,10 +89,10 @@ class JwtGenerator {
   /**
    * Check if token is about to expire (within 5 minutes)
    */
-  isTokenExpiringSoon(token) {
+  isTokenExpiringSoon(token: string): boolean {
     try {
-      const decoded = jwt.decode(token);
-      const expirationTime = decoded.exp * 1000;
+      const decoded = jwt.decode(token) as jwt.JwtPayload;
+      const expirationTime = decoded.exp! * 1000;
       const fiveMinutesFromNow = Date.now() + 5 * 60 * 1000;
       return expirationTime <= fiveMinutesFromNow;
     } catch {
@@ -96,5 +100,3 @@ class JwtGenerator {
     }
   }
 }
-
-module.exports = JwtGenerator;

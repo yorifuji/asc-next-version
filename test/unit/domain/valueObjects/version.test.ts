@@ -1,7 +1,6 @@
-'use strict';
-
-const Version = require('../../../../src/domain/valueObjects/version');
-const { ValidationError } = require('../../../../src/shared/errors/customErrors');
+import { describe, expect, test } from 'vitest';
+import { Version } from '../../../../src/domain/valueObjects/version.js';
+import { ValidationError } from '../../../../src/shared/errors/customErrors.js';
 
 describe('Version', () => {
   describe('constructor', () => {
@@ -28,8 +27,8 @@ describe('Version', () => {
     });
 
     test('nullやundefinedでエラーが発生する', () => {
-      expect(() => new Version(null)).toThrow(ValidationError);
-      expect(() => new Version(undefined)).toThrow(ValidationError);
+      expect(() => new Version(null as any)).toThrow(ValidationError);
+      expect(() => new Version(undefined as any)).toThrow(ValidationError);
     });
   });
 
@@ -90,8 +89,8 @@ describe('Version', () => {
 
     test('Version以外のオブジェクトと比較するとエラー', () => {
       const version = new Version('1.2.3');
-      expect(() => version.compareTo('1.2.3')).toThrow(ValidationError);
-      expect(() => version.compareTo(null)).toThrow(ValidationError);
+      expect(() => version.compareTo('1.2.3' as any)).toThrow(ValidationError);
+      expect(() => version.compareTo(null as any)).toThrow(ValidationError);
     });
   });
 

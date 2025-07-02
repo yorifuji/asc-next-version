@@ -1,20 +1,37 @@
-const core = require('@actions/core');
-const appStoreService = require('./appStoreService');
+import * as core from '@actions/core';
+import * as appStoreService from './appStoreService.js';
+
+interface VersionResult {
+  version?: string;
+  buildNumber?: number;
+  action: string;
+}
 
 /**
  * Determine next version and build number based on current state
  */
-async function determineNextVersionAndBuild(liveVersion, liveMaxBuild, appId, token) {
+export async function determineNextVersionAndBuild(
+  liveVersion: string,
+  liveMaxBuild: number,
+  appId: string,
+  token: string,
+): Promise<VersionResult> {
   // Calculate next version
   const versionParts = liveVersion.split('.').map(Number);
-  versionParts[2] += 1;
+  const patchVersion = versionParts[2];
+  if (patchVersion === undefined || isNaN(patchVersion)) {
+    throw new Error(`Invalid version format: ${liveVersion}`);
+  }
+  versionParts[2] = patchVersion + 1;
   const nextVersion = versionParts.join('.');
   core.info(`Calculated next version: ${nextVersion}`);
 
   // Check if next version exists
   const nextVersionInfo = await appStoreService.checkVersionExists(appId, nextVersion, token);
 
-  let version, buildNumber, action;
+  let version: string | undefined;
+  let buildNumber: number | undefined;
+  let action: string;
 
   if (!nextVersionInfo) {
     // New version case
@@ -50,7 +67,3 @@ async function determineNextVersionAndBuild(liveVersion, liveMaxBuild, appId, to
 
   return { version, buildNumber, action };
 }
-
-module.exports = {
-  determineNextVersionAndBuild,
-};

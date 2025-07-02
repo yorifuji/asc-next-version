@@ -1,5 +1,6 @@
-const { generateJwt } = require('../src/utils/jwt');
-const crypto = require('crypto');
+import { describe, expect, test } from 'vitest';
+import crypto from 'node:crypto';
+import { generateJwt } from '../src/utils/jwt.js';
 
 describe('generateJwt', () => {
   test('JWTが正しい形式で生成されること', () => {
@@ -64,7 +65,7 @@ describe('generateJwt', () => {
 });
 
 // JWT形式（R||S）からDER形式への変換ヘルパー関数
-function createDerSignature(rComponent, sComponent) {
+function createDerSignature(rComponent: Buffer, sComponent: Buffer): Buffer {
   // Remove leading zeros
   let rBuffer = rComponent;
   let sBuffer = sComponent;

@@ -20,40 +20,49 @@ src/
 ├── infrastructure/    # インフラストラクチャ層
 │   ├── api/          # 外部API通信
 │   └── auth/         # 認証関連
-└── shared/           # 共有ユーティリティ
-    ├── errors/       # カスタムエラー
-    └── constants/    # 定数定義
+├── shared/           # 共有ユーティリティ
+│   ├── types/        # 共通型定義
+│   ├── errors/       # カスタムエラー
+│   └── constants/    # 定数定義
+└── utils/            # ユーティリティ関数
 ```
 
 ## 設計原則
 
 ### 1. 依存性の方向
+
 - 外側のレイヤーから内側のレイヤーへのみ依存
 - ドメイン層は他のレイヤーに依存しない
 
 ### 2. 責任の分離
+
 - **interfaces**: 外部との入出力処理
 - **application**: ユースケースの調整
 - **domain**: ビジネスルールの実装
 - **infrastructure**: 外部サービスとの通信
 
 ### 3. テスタビリティ
+
 - 各レイヤーは独立してテスト可能
 - 依存性注入によるモックの容易性
 
 ## 命名規則
 
 ### ファイル名
-- camelCase を使用（例: `appStoreClient.js`）
-- テストファイルは `.test.js` サフィックス
-- インターフェースは `.interface.js` サフィックス
+
+- camelCase を使用（例: `appStoreClient.ts`）
+- テストファイルは `.test.ts` サフィックス
+- 型定義ファイルは `.types.ts` サフィックス
 
 ### クラス・関数名
+
 - クラス: PascalCase（例: `VersionManager`）
 - 関数: camelCase（例: `calculateNextVersion`）
-- プライベート関数: アンダースコアプレフィックス（例: `_validateVersion`）
+- インターフェース: PascalCase で `I` プレフィックス（例: `IAppStoreClient`）
+- 型エイリアス: PascalCase（例: `AppStoreResponse`）
 
 ### 変数名
+
 - camelCase を使用
 - 定数: UPPER_SNAKE_CASE（例: `MAX_RETRY_COUNT`）
 - ブール値: is/has/can プレフィックス（例: `isValid`）
@@ -61,46 +70,58 @@ src/
 ## エラーハンドリング
 
 ### カスタムエラークラス
-```javascript
-class AppStoreConnectError extends Error {
-  constructor(message, code, details) {
+
+```typescript
+export class AppStoreConnectError extends Error {
+  constructor(
+    message: string,
+    public readonly code: string,
+    public readonly details?: unknown
+  ) {
     super(message);
     this.name = 'AppStoreConnectError';
-    this.code = code;
-    this.details = details;
   }
 }
 ```
 
 ### エラーの種類
+
 - `ValidationError`: 入力検証エラー
 - `ApiError`: API通信エラー
 - `BusinessLogicError`: ビジネスロジックエラー
 
 ## コーディング規約
 
-### JavaScript
-- ES6+ の機能を使用
+### TypeScript
+
+- ES2022+ の機能を使用
 - シングルクォートを使用
 - セミコロンあり
 - インデント: 2スペース
+- strict モードを有効化
+- 明示的な型定義を推奨
 
 ### 非同期処理
+
 - async/await を使用
 - Promise チェーンは避ける
 
 ### モジュール
-- CommonJS形式（Node.js互換性のため）
+
+- ESModules形式を使用
 - 名前付きエクスポートを推奨
+- デフォルトエクスポートは避ける
 
 ## テスト戦略
 
 ### テストの種類
+
 1. **単体テスト**: 各モジュール・関数の個別テスト
 2. **統合テスト**: レイヤー間の連携テスト
 3. **E2Eテスト**: 全体フローのテスト
 
 ### テストファイル構造
+
 ```
 test/
 ├── unit/           # 単体テスト
@@ -109,6 +130,7 @@ test/
 ```
 
 ### カバレッジ目標
+
 - 単体テスト: 90%以上
 - 統合テスト: 主要フローを網羅
 - E2Eテスト: クリティカルパスを網羅

@@ -1,22 +1,59 @@
-'use strict';
+import { BuildNumber } from '../../domain/valueObjects/buildNumber.js';
+import type { Version } from '../../domain/valueObjects/version.js';
+import { VersionCalculator } from '../../domain/services/versionCalculator.js';
+import { BusinessLogicError } from '../../shared/errors/customErrors.js';
+import { APP_STORE_STATES, VERSION_ACTIONS } from '../../shared/constants/index.js';
+import type { Platform } from '../../shared/constants/index.js';
+import type { AppStoreConnectClient } from '../../infrastructure/api/appStoreConnectClient.js';
+import type { AppStoreVersion } from '../../domain/entities/appStoreVersion.js';
 
-const BuildNumber = require('../../domain/valueObjects/buildNumber');
-const VersionCalculator = require('../../domain/services/versionCalculator');
-const { BusinessLogicError } = require('../../shared/errors/customErrors');
-const { APP_STORE_STATES, VERSION_ACTIONS } = require('../../shared/constants');
+interface ExecuteParams {
+  bundleId: string;
+  platform: Platform;
+  createNewVersion?: boolean;
+}
+
+interface ExecuteResult {
+  app: {
+    id: string;
+    bundleId: string;
+    name: string;
+    sku: string;
+    primaryLocale: string;
+  };
+  liveVersion: string;
+  liveBuildNumber: number;
+  version: string;
+  buildNumber: string;
+  action: string;
+  versionCreated: boolean;
+  skipReason?: string;
+}
+
+interface ActionResult {
+  action: string;
+  buildNumber?: BuildNumber;
+  reason?: string;
+}
 
 /**
  * Use case for determining the next version and build number
  */
-class DetermineNextVersionUseCase {
-  constructor(appStoreConnectClient) {
+export class DetermineNextVersionUseCase {
+  private appStoreClient: AppStoreConnectClient;
+
+  constructor(appStoreConnectClient: AppStoreConnectClient) {
     this.appStoreClient = appStoreConnectClient;
   }
 
   /**
    * Execute the use case
    */
-  async execute({ bundleId, platform, createNewVersion = false }) {
+  async execute({
+    bundleId,
+    platform,
+    createNewVersion = false,
+  }: ExecuteParams): Promise<ExecuteResult> {
     // Step 1: Find the app
     const app = await this.appStoreClient.findApp(bundleId);
     console.info(`Found app: ${app.name} (${app.id})`);
@@ -57,7 +94,7 @@ class DetermineNextVersionUseCase {
       liveVersion: liveVersion.version.toString(),
       liveBuildNumber: liveBuildNumber.getValue(),
       version: actionResult.action !== VERSION_ACTIONS.SKIP ? nextVersion.toString() : '',
-      buildNumber: actionResult.buildNumber ? actionResult.buildNumber.getValue() : '',
+      buildNumber: actionResult.buildNumber ? String(actionResult.buildNumber.getValue()) : '',
       action: actionResult.action,
       versionCreated,
       skipReason: actionResult.reason,
@@ -67,7 +104,7 @@ class DetermineNextVersionUseCase {
   /**
    * Get the current live version
    */
-  async _getLiveVersion(appId) {
+  private async _getLiveVersion(appId: string): Promise<AppStoreVersion> {
     const versions = await this.appStoreClient.getAppStoreVersions(appId, {
       state: APP_STORE_STATES.READY_FOR_SALE,
       sort: '-versionString',
@@ -106,6 +143,9 @@ class DetermineNextVersionUseCase {
 
     // Get the latest READY_FOR_SALE version
     const liveVersion = readyForSaleVersions[0];
+    if (!liveVersion) {
+      throw new BusinessLogicError('No live version found after filtering', 'NO_LIVE_VERSION');
+    }
 
     // Get build number for live version
     const buildNumber = await this.appStoreClient.getBuildForVersion(liveVersion.id);
@@ -117,7 +157,7 @@ class DetermineNextVersionUseCase {
   /**
    * Get maximum build number using fallback strategy
    */
-  async _getMaxBuildNumber(version, appId) {
+  private async _getMaxBuildNumber(version: AppStoreVersion, appId: string): Promise<BuildNumber> {
     // Try to get build number from version directly
     if (version.buildNumber && version.buildNumber.getValue() > 0) {
       return version.buildNumber;
@@ -129,7 +169,7 @@ class DetermineNextVersionUseCase {
       limit: 1,
     });
 
-    if (builds.length > 0) {
+    if (builds.length > 0 && builds[0]) {
       return builds[0].version;
     }
 
@@ -139,13 +179,15 @@ class DetermineNextVersionUseCase {
   /**
    * Find a specific version
    */
-  async _findVersion(appId, version) {
+  private async _findVersion(appId: string, version: Version): Promise<AppStoreVersion | null> {
     const versions = await this.appStoreClient.getAppStoreVersions(appId, {
       version: version.toString(),
     });
 
-    console.info(`Searching for version ${version.toString()}, found ${versions.length} version(s)`);
-    
+    console.info(
+      `Searching for version ${version.toString()}, found ${versions.length} version(s)`,
+    );
+
     if (versions.length > 0) {
       versions.forEach((v, index) => {
         console.info(`  [${index}] Version: ${v.version.toString()}, State: ${v.state}`);
@@ -153,10 +195,12 @@ class DetermineNextVersionUseCase {
     }
 
     // Find exact version match
-    const exactMatch = versions.find(v => v.version.toString() === version.toString());
-    
+    const exactMatch = versions.find((v) => v.version.toString() === version.toString());
+
     if (exactMatch) {
-      console.info(`Found exact match: ${exactMatch.version.toString()} in state ${exactMatch.state}`);
+      console.info(
+        `Found exact match: ${exactMatch.version.toString()} in state ${exactMatch.state}`,
+      );
       exactMatch.buildNumber = new BuildNumber(0);
       return exactMatch;
     }
@@ -168,7 +212,11 @@ class DetermineNextVersionUseCase {
   /**
    * Determine action with proper build number calculation
    */
-  async _determineActionWithBuildNumber(existingVersion, currentMaxBuild, appId) {
+  private async _determineActionWithBuildNumber(
+    existingVersion: AppStoreVersion | null,
+    currentMaxBuild: BuildNumber,
+    appId: string,
+  ): Promise<ActionResult> {
     const result = VersionCalculator.determineAction(existingVersion, currentMaxBuild);
 
     // If incrementing build on existing version, ensure we have the correct max build
@@ -179,15 +227,21 @@ class DetermineNextVersionUseCase {
       }
     }
 
-    return result;
+    return {
+      action: result.action,
+      buildNumber: result.buildNumber || undefined,
+      reason: result.reason,
+    };
   }
 
   /**
    * Create a new version
    */
-  async _createNewVersion(appId, version, platform) {
+  private async _createNewVersion(
+    appId: string,
+    version: Version,
+    platform: Platform,
+  ): Promise<AppStoreVersion> {
     return await this.appStoreClient.createAppStoreVersion(appId, version, platform);
   }
 }
-
-module.exports = DetermineNextVersionUseCase;

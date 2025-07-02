@@ -1,13 +1,13 @@
-const { determineNextVersionAndBuild } = require('../src/services/versioningService');
+import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { determineNextVersionAndBuild } from '../src/services/versioningService.js';
+import * as appStoreService from '../src/services/appStoreService.js';
 
-jest.mock('@actions/core');
-jest.mock('../src/services/appStoreService');
-
-const { getMaxBuildNumber } = require('../src/services/appStoreService');
+vi.mock('@actions/core');
+vi.mock('../src/services/appStoreService.js');
 
 describe('determineNextVersionAndBuild', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   const mockToken = 'mock-token';
@@ -18,8 +18,7 @@ describe('determineNextVersionAndBuild', () => {
     const liveMaxBuild = 10;
 
     // nextVersionが存在しない場合をモック
-    const appStoreService = require('../src/services/appStoreService');
-    appStoreService.checkVersionExists = jest.fn().mockResolvedValueOnce(null);
+    vi.mocked(appStoreService.checkVersionExists).mockResolvedValueOnce(null);
 
     const result = await determineNextVersionAndBuild(
       liveVersion,
@@ -46,11 +45,10 @@ describe('determineNextVersionAndBuild', () => {
       id: 'version-id',
     };
 
-    const appStoreService = require('../src/services/appStoreService');
-    appStoreService.checkVersionExists = jest.fn().mockResolvedValueOnce(nextVersionInfo);
+    vi.mocked(appStoreService.checkVersionExists).mockResolvedValueOnce(nextVersionInfo as any);
 
     // getMaxBuildNumber のモック（既存バージョンの最大build番号として20を返す）
-    getMaxBuildNumber.mockResolvedValueOnce(20);
+    vi.mocked(appStoreService.getMaxBuildNumber).mockResolvedValueOnce(20);
 
     const result = await determineNextVersionAndBuild(
       liveVersion,
@@ -66,7 +64,11 @@ describe('determineNextVersionAndBuild', () => {
     });
     expect(appStoreService.checkVersionExists).toHaveBeenCalledWith(mockAppId, '1.0.1', mockToken);
     // getMaxBuildNumber が適切なパラメータで呼ばれることを確認
-    expect(getMaxBuildNumber).toHaveBeenCalledWith(nextVersionInfo, mockAppId, mockToken);
+    expect(appStoreService.getMaxBuildNumber).toHaveBeenCalledWith(
+      nextVersionInfo,
+      mockAppId,
+      mockToken,
+    );
   });
 
   test('既存のバージョンがあり、スキップされる場合', async () => {
@@ -74,11 +76,10 @@ describe('determineNextVersionAndBuild', () => {
     const liveMaxBuild = 10;
 
     // nextVersionが存在し、状態がREADY_FOR_SALEの場合をモック
-    const appStoreService = require('../src/services/appStoreService');
     const nextVersionInfo = {
       attributes: { appStoreState: 'READY_FOR_SALE' },
     };
-    appStoreService.checkVersionExists = jest.fn().mockResolvedValueOnce(nextVersionInfo);
+    vi.mocked(appStoreService.checkVersionExists).mockResolvedValueOnce(nextVersionInfo as any);
 
     const result = await determineNextVersionAndBuild(
       liveVersion,

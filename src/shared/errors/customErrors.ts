@@ -1,10 +1,13 @@
-'use strict';
+import type { ErrorDetails } from '../types/api.js';
 
 /**
  * Base error class for App Store Connect errors
  */
-class AppStoreConnectError extends Error {
-  constructor(message, code, details) {
+export class AppStoreConnectError extends Error {
+  code: string;
+  details: ErrorDetails | undefined;
+
+  constructor(message: string, code: string, details?: ErrorDetails) {
     super(message);
     this.name = 'AppStoreConnectError';
     this.code = code;
@@ -16,8 +19,8 @@ class AppStoreConnectError extends Error {
 /**
  * Error thrown when validation fails
  */
-class ValidationError extends AppStoreConnectError {
-  constructor(message, field, value) {
+export class ValidationError extends AppStoreConnectError {
+  constructor(message: string, field: string, value: unknown) {
     super(message, 'VALIDATION_ERROR', { field, value });
     this.name = 'ValidationError';
   }
@@ -26,8 +29,10 @@ class ValidationError extends AppStoreConnectError {
 /**
  * Error thrown when API communication fails
  */
-class ApiError extends AppStoreConnectError {
-  constructor(message, statusCode, response) {
+export class ApiError extends AppStoreConnectError {
+  statusCode: number;
+
+  constructor(message: string, statusCode: number, response?: unknown) {
     super(message, 'API_ERROR', { statusCode, response });
     this.name = 'ApiError';
     this.statusCode = statusCode;
@@ -37,8 +42,8 @@ class ApiError extends AppStoreConnectError {
 /**
  * Error thrown when business logic constraints are violated
  */
-class BusinessLogicError extends AppStoreConnectError {
-  constructor(message, reason) {
+export class BusinessLogicError extends AppStoreConnectError {
+  constructor(message: string, reason: string) {
     super(message, 'BUSINESS_LOGIC_ERROR', { reason });
     this.name = 'BusinessLogicError';
   }
@@ -47,17 +52,9 @@ class BusinessLogicError extends AppStoreConnectError {
 /**
  * Error thrown when authentication fails
  */
-class AuthenticationError extends AppStoreConnectError {
-  constructor(message, reason) {
+export class AuthenticationError extends AppStoreConnectError {
+  constructor(message: string, reason: string) {
     super(message, 'AUTHENTICATION_ERROR', { reason });
     this.name = 'AuthenticationError';
   }
 }
-
-module.exports = {
-  AppStoreConnectError,
-  ValidationError,
-  ApiError,
-  BusinessLogicError,
-  AuthenticationError,
-};

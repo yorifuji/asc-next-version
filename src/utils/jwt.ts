@@ -1,6 +1,6 @@
-const crypto = require('crypto');
+import crypto from 'crypto';
 
-function base64urlEscape(str) {
+function base64urlEscape(str: string): string {
   return str.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 }
 
@@ -9,7 +9,7 @@ function base64urlEscape(str) {
  * @param {Buffer} derSignature - DER encoded signature
  * @returns {Buffer} JWT format signature (64 bytes for ES256)
  */
-function derToJwtSignature(derSignature) {
+function derToJwtSignature(derSignature: Buffer): Buffer {
   // DER format: 0x30 [total-length] 0x02 [R-length] [R] 0x02 [S-length] [S]
   let offset = 0;
 
@@ -20,7 +20,7 @@ function derToJwtSignature(derSignature) {
 
   // Skip total length
   const derTotalLength = derSignature[offset++];
-  if (derTotalLength & 0x80) {
+  if (derTotalLength && derTotalLength & 0x80) {
     // Long form length - not typically seen in ECDSA signatures
     offset += derTotalLength & 0x7f;
   }
@@ -31,7 +31,10 @@ function derToJwtSignature(derSignature) {
   }
 
   const rLength = derSignature[offset++];
-  const rValue = derSignature.slice(offset, offset + rLength);
+  if (rLength === undefined) {
+    throw new Error('Invalid DER signature format (R length)');
+  }
+  const rValue = derSignature.subarray(offset, offset + rLength);
   offset += rLength;
 
   // Read S
@@ -40,7 +43,10 @@ function derToJwtSignature(derSignature) {
   }
 
   const sLength = derSignature[offset++];
-  const sValue = derSignature.slice(offset, offset + sLength);
+  if (sLength === undefined) {
+    throw new Error('Invalid DER signature format (S length)');
+  }
+  const sValue = derSignature.subarray(offset, offset + sLength);
 
   // For ES256 (P-256), R and S should be 32 bytes each
   const targetLength = 32;
@@ -52,10 +58,10 @@ function derToJwtSignature(derSignature) {
 
   // Remove leading 0x00 if present
   if (rBuffer[0] === 0x00) {
-    rBuffer = rBuffer.slice(1);
+    rBuffer = rBuffer.subarray(1);
   }
   if (sBuffer[0] === 0x00) {
-    sBuffer = sBuffer.slice(1);
+    sBuffer = sBuffer.subarray(1);
   }
 
   // Pad with zeros if necessary
@@ -70,17 +76,17 @@ function derToJwtSignature(derSignature) {
 
   // Ensure we have exactly 32 bytes for each component
   if (rBuffer.length > targetLength) {
-    rBuffer = rBuffer.slice(rBuffer.length - targetLength);
+    rBuffer = rBuffer.subarray(rBuffer.length - targetLength);
   }
   if (sBuffer.length > targetLength) {
-    sBuffer = sBuffer.slice(sBuffer.length - targetLength);
+    sBuffer = sBuffer.subarray(sBuffer.length - targetLength);
   }
 
   // Concatenate R and S
   return Buffer.concat([rBuffer, sBuffer]);
 }
 
-function generateJwt(issuerId, keyId, key) {
+export function generateJwt(issuerId: string, keyId: string, key: string): string {
   // Create header
   const header = {
     alg: 'ES256',
@@ -121,7 +127,3 @@ function generateJwt(issuerId, keyId, key) {
   // Return the complete JWT
   return `${message}.${encodedSignature}`;
 }
-
-module.exports = {
-  generateJwt,
-};

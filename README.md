@@ -140,12 +140,14 @@ jobs:
 ### 環境セットアップ
 
 1. **リポジトリのクローン**
+
    ```bash
    git clone https://github.com/yorifuji/asc-next-version.git
    cd asc-next-version
    ```
 
 2. **依存関係のインストール**
+
    ```bash
    npm install
    ```
@@ -154,6 +156,11 @@ jobs:
    ```bash
    node --version  # v20.0.0以上が必要
    npm --version   # v10.0.0以上を推奨
+   ```
+
+4. **TypeScriptのビルド**
+   ```bash
+   npm run build
    ```
 
 ### 開発フロー
@@ -184,6 +191,9 @@ npm run lint:fix
 
 # Prettierでコードをフォーマット
 npm run format
+
+# TypeScriptの型チェック
+npm run typecheck
 
 # 全ての品質チェックを実行
 npm run verify
@@ -222,11 +232,13 @@ npm run clean
 ### コミット前のチェックリスト
 
 1. **コードスタイルの確認**
+
    ```bash
    npm run verify
    ```
 
 2. **自動修正の適用**
+
    ```bash
    npm run verify:fix
    ```
@@ -241,12 +253,14 @@ npm run clean
 ### プルリクエストの作成
 
 1. **変更をコミット**
+
    ```bash
    git add .
    git commit -m "feat: 新機能の説明"
    ```
 
 2. **リモートにプッシュ**
+
    ```bash
    git push origin feature/your-feature-name
    ```
@@ -258,20 +272,22 @@ npm run clean
 
 ### よく使うnpmスクリプト
 
-| コマンド | 説明 |
-|---------|------|
-| `npm test` | 全テストを実行 |
-| `npm run test:watch` | ファイル変更を監視してテストを自動実行 |
-| `npm run build` | 本番用ビルド |
-| `npm run watch` | ファイル変更を監視して自動ビルド |
-| `npm run lint:fix` | ESLintの自動修正 |
-| `npm run format` | Prettierでコードをフォーマット |
-| `npm run verify` | リント、フォーマット、テストを一括実行 |
-| `npm run clean` | ビルド成果物とカバレッジレポートを削除 |
+| コマンド             | 説明                                          |
+| -------------------- | --------------------------------------------- |
+| `npm test`           | 全テストを実行                                |
+| `npm run test:watch` | ファイル変更を監視してテストを自動実行        |
+| `npm run build`      | 本番用ビルド                                  |
+| `npm run watch`      | ファイル変更を監視して自動ビルド              |
+| `npm run lint:fix`   | ESLintの自動修正                              |
+| `npm run format`     | Prettierでコードをフォーマット                |
+| `npm run typecheck`  | TypeScriptの型チェック                        |
+| `npm run verify`     | リント、フォーマット、型チェック、テストを実行 |
+| `npm run clean`      | ビルド成果物とカバレッジレポートを削除        |
 
 ### トラブルシューティング
 
 #### ビルドエラーが発生する場合
+
 ```bash
 npm run clean
 npm install
@@ -279,6 +295,7 @@ npm run build
 ```
 
 #### テストが失敗する場合
+
 ```bash
 # キャッシュをクリアしてテストを実行
 npm test -- --clearCache
@@ -286,6 +303,7 @@ npm test
 ```
 
 #### ESLintエラーが解決できない場合
+
 ```bash
 # 自動修正を試す
 npm run lint:fix

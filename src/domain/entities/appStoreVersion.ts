@@ -1,14 +1,39 @@
-'use strict';
+import { Version } from '../valueObjects/version.js';
+import { BuildNumber } from '../valueObjects/buildNumber.js';
+import { INCREMENTABLE_STATES } from '../../shared/constants/index.js';
+import type { AppStoreState, Platform } from '../../shared/constants/index.js';
 
-const Version = require('../valueObjects/version');
-const BuildNumber = require('../valueObjects/buildNumber');
-const { INCREMENTABLE_STATES } = require('../../shared/constants');
+interface AppStoreVersionParams {
+  id: string;
+  version: string | Version;
+  buildNumber: string | number | BuildNumber;
+  state: AppStoreState;
+  platform: Platform;
+  createdDate: string;
+}
+
+interface ApiResponseData {
+  id: string;
+  attributes: {
+    versionString: string;
+    appStoreState: AppStoreState;
+    platform: Platform;
+    createdDate: string;
+  };
+}
 
 /**
  * Entity representing an App Store version
  */
-class AppStoreVersion {
-  constructor({ id, version, buildNumber, state, platform, createdDate }) {
+export class AppStoreVersion {
+  id: string;
+  version: Version;
+  buildNumber: BuildNumber;
+  state: AppStoreState;
+  platform: Platform;
+  createdDate: string;
+
+  constructor({ id, version, buildNumber, state, platform, createdDate }: AppStoreVersionParams) {
     this.id = id;
     this.version = version instanceof Version ? version : new Version(version);
     this.buildNumber =
@@ -21,21 +46,21 @@ class AppStoreVersion {
   /**
    * Check if this version can have its build number incremented
    */
-  canIncrementBuild() {
+  canIncrementBuild(): boolean {
     return INCREMENTABLE_STATES.includes(this.state);
   }
 
   /**
    * Check if this version is live (ready for sale)
    */
-  isLive() {
+  isLive(): boolean {
     return this.state === 'READY_FOR_SALE';
   }
 
   /**
    * Get the next build number
    */
-  getNextBuildNumber() {
+  getNextBuildNumber(): BuildNumber {
     return this.buildNumber.increment();
   }
 
@@ -56,7 +81,7 @@ class AppStoreVersion {
   /**
    * Create from API response
    */
-  static fromApiResponse(data) {
+  static fromApiResponse(data: ApiResponseData): AppStoreVersion {
     return new AppStoreVersion({
       id: data.id,
       version: data.attributes.versionString,
@@ -67,5 +92,3 @@ class AppStoreVersion {
     });
   }
 }
-
-module.exports = AppStoreVersion;

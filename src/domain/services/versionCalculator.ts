@@ -1,20 +1,33 @@
-'use strict';
+import { Version } from '../valueObjects/version.js';
+import type { BuildNumber } from '../valueObjects/buildNumber.js';
+import type { AppStoreVersion } from '../entities/appStoreVersion.js';
+import { VERSION_ACTIONS } from '../../shared/constants/index.js';
+import type { VersionAction } from '../../shared/constants/index.js';
+import { BusinessLogicError } from '../../shared/errors/customErrors.js';
 
-const Version = require('../valueObjects/version');
-const { VERSION_ACTIONS } = require('../../shared/constants');
-const { BusinessLogicError } = require('../../shared/errors/customErrors');
+type IncrementType = 'patch' | 'minor' | 'major';
+
+interface ActionResult {
+  action: VersionAction;
+  buildNumber?: BuildNumber | null;
+  requiresVersionCreation?: boolean;
+  reason?: string;
+}
 
 /**
  * Domain service for calculating next version and build number
  */
-class VersionCalculator {
+export class VersionCalculator {
   /**
    * Calculate the next version based on the current live version
    * @param {Version} currentVersion - The current live version
    * @param {string} incrementType - Type of increment (patch, minor, major)
    * @returns {Version} The next version
    */
-  static calculateNextVersion(currentVersion, incrementType = 'patch') {
+  static calculateNextVersion(
+    currentVersion: Version,
+    incrementType: IncrementType = 'patch',
+  ): Version {
     if (!(currentVersion instanceof Version)) {
       throw new BusinessLogicError(
         'Current version must be a Version instance',
@@ -23,17 +36,17 @@ class VersionCalculator {
     }
 
     switch (incrementType) {
-    case 'patch':
-      return currentVersion.incrementPatch();
-    case 'minor':
-      return currentVersion.incrementMinor();
-    case 'major':
-      return currentVersion.incrementMajor();
-    default:
-      throw new BusinessLogicError(
-        `Invalid increment type: ${incrementType}`,
-        'Invalid increment type',
-      );
+      case 'patch':
+        return currentVersion.incrementPatch();
+      case 'minor':
+        return currentVersion.incrementMinor();
+      case 'major':
+        return currentVersion.incrementMajor();
+      default:
+        throw new BusinessLogicError(
+          `Invalid increment type: ${incrementType}`,
+          'Invalid increment type',
+        );
     }
   }
 
@@ -43,7 +56,10 @@ class VersionCalculator {
    * @param {BuildNumber} currentMaxBuild - Current maximum build number
    * @returns {Object} Action details
    */
-  static determineAction(nextVersion, currentMaxBuild) {
+  static determineAction(
+    nextVersion: AppStoreVersion | null,
+    currentMaxBuild: BuildNumber,
+  ): ActionResult {
     if (!nextVersion) {
       // Version doesn't exist, create new
       return {
@@ -82,9 +98,7 @@ class VersionCalculator {
    * @param {Version} nextVersion - Proposed next version
    * @returns {boolean} Whether the transition is valid
    */
-  static isValidVersionTransition(currentVersion, nextVersion) {
+  static isValidVersionTransition(currentVersion: Version, nextVersion: Version): boolean {
     return nextVersion.compareTo(currentVersion) > 0;
   }
 }
-
-module.exports = VersionCalculator;

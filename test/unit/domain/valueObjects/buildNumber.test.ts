@@ -1,7 +1,6 @@
-'use strict';
-
-const BuildNumber = require('../../../../src/domain/valueObjects/buildNumber');
-const { ValidationError } = require('../../../../src/shared/errors/customErrors');
+import { describe, expect, test } from 'vitest';
+import { BuildNumber } from '../../../../src/domain/valueObjects/buildNumber.js';
+import { ValidationError } from '../../../../src/shared/errors/customErrors.js';
 
 describe('BuildNumber', () => {
   describe('constructor', () => {
@@ -36,8 +35,8 @@ describe('BuildNumber', () => {
     });
 
     test('nullやundefinedでエラーが発生する', () => {
-      expect(() => new BuildNumber(null)).toThrow(ValidationError);
-      expect(() => new BuildNumber(undefined)).toThrow(ValidationError);
+      expect(() => new BuildNumber(null as any)).toThrow(ValidationError);
+      expect(() => new BuildNumber(undefined as any)).toThrow(ValidationError);
     });
   });
 
@@ -90,8 +89,8 @@ describe('BuildNumber', () => {
 
     test('BuildNumber以外のオブジェクトと比較するとエラー', () => {
       const buildNumber = new BuildNumber(42);
-      expect(() => buildNumber.compareTo(42)).toThrow(ValidationError);
-      expect(() => buildNumber.compareTo('42')).toThrow(ValidationError);
+      expect(() => buildNumber.compareTo(42 as any)).toThrow(ValidationError);
+      expect(() => buildNumber.compareTo('42' as any)).toThrow(ValidationError);
     });
   });
 

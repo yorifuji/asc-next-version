@@ -1,14 +1,14 @@
-const { get, createAppStoreVersion } = require('../src/clients/appStoreClient');
+import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { createAppStoreVersion, get } from '../src/clients/appStoreClient.js';
+import * as core from '@actions/core';
+import axios from 'axios';
 
-jest.mock('@actions/core');
-jest.mock('axios', () => ({
-  get: jest.fn(),
-  post: jest.fn(), // postメソッドもモックする
-}));
+vi.mock('@actions/core');
+vi.mock('axios');
 
 describe('get', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   test('API呼び出しが成功し、データを返すこと', async () => {
@@ -16,11 +16,11 @@ describe('get', () => {
     const token = 'test-token';
     const mockResponseData = { data: 'test' };
 
-    require('axios').get.mockResolvedValue({ data: mockResponseData });
+    vi.mocked(axios.get).mockResolvedValue({ data: mockResponseData } as any);
 
     const result = await get(url, token);
 
-    expect(require('axios').get).toHaveBeenCalledWith(url, {
+    expect(axios.get).toHaveBeenCalledWith(url, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -33,16 +33,16 @@ describe('get', () => {
     const token = 'test-token';
     const errorMessage = 'Network Error';
 
-    require('axios').get.mockRejectedValue(new Error(errorMessage));
+    vi.mocked(axios.get).mockRejectedValue(new Error(errorMessage));
 
     await expect(get(url, token)).rejects.toThrow(errorMessage);
-    expect(require('@actions/core').error).toHaveBeenCalledWith(`API GET failed: ${errorMessage}`);
+    expect(core.error).toHaveBeenCalledWith(`API GET failed: ${errorMessage}`);
   });
 });
 
 describe('createAppStoreVersion', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   test('App Store Versionが正しく作成されること', async () => {
@@ -52,18 +52,18 @@ describe('createAppStoreVersion', () => {
     const token = 'test-token';
     const mockResponseData = { id: 'new-version-id' };
 
-    require('axios').post.mockResolvedValue({ data: mockResponseData });
+    vi.mocked(axios.post).mockResolvedValue({ data: mockResponseData } as any);
 
     const result = await createAppStoreVersion(appId, versionString, platform, token);
 
-    expect(require('axios').post).toHaveBeenCalledWith(
+    expect(axios.post).toHaveBeenCalledWith(
       'https://api.appstoreconnect.apple.com/v1/appStoreVersions',
       {
         data: {
           type: 'appStoreVersions',
           attributes: {
-            platform: platform,
-            versionString: versionString,
+            platform,
+            versionString,
           },
           relationships: {
             app: {
@@ -83,7 +83,7 @@ describe('createAppStoreVersion', () => {
       },
     );
     expect(result).toBe(mockResponseData);
-    expect(require('@actions/core').info).toHaveBeenCalledWith(
+    expect(core.info).toHaveBeenCalledWith(
       `Successfully created App Store Version ${versionString} for app ${appId}`,
     );
   });
@@ -95,11 +95,11 @@ describe('createAppStoreVersion', () => {
     const token = 'test-token';
     const errorMessage = 'API Error';
 
-    require('axios').post.mockRejectedValue(new Error(errorMessage));
+    vi.mocked(axios.post).mockRejectedValue(new Error(errorMessage));
 
     await expect(createAppStoreVersion(appId, versionString, platform, token)).rejects.toThrow(
       errorMessage,
     );
-    expect(require('@actions/core').error).toHaveBeenCalledWith(`API POST failed: ${errorMessage}`);
+    expect(core.error).toHaveBeenCalledWith(`API POST failed: ${errorMessage}`);
   });
 });

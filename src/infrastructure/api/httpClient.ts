@@ -1,14 +1,18 @@
-'use strict';
+import axios from 'axios';
+import type { AxiosError, AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+import { API_CONFIG } from '../../shared/constants/index.js';
+import { ApiError } from '../../shared/errors/customErrors.js';
+import type { ApiErrorResponse } from '../../shared/types/api.js';
 
-const axios = require('axios');
-const { API_CONFIG } = require('../../shared/constants');
-const { ApiError } = require('../../shared/errors/customErrors');
+type HttpMethod = 'get' | 'post' | 'patch' | 'delete';
 
 /**
  * HTTP client with retry logic and error handling
  */
-class HttpClient {
-  constructor(baseURL = API_CONFIG.BASE_URL) {
+export class HttpClient {
+  private client: AxiosInstance;
+
+  constructor(baseURL: string = API_CONFIG.BASE_URL) {
     this.client = axios.create({
       baseURL,
       timeout: API_CONFIG.TIMEOUT,
@@ -23,46 +27,46 @@ class HttpClient {
   /**
    * Set authorization token
    */
-  setAuthToken(token) {
+  setAuthToken(token: string): void {
     this.client.defaults.headers.common['Authorization'] = `Bearer ${token}`;
   }
 
   /**
    * GET request with retry
    */
-  async get(url, config = {}) {
-    return this._requestWithRetry('get', url, null, config);
+  async get<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<T> {
+    return this._requestWithRetry('get', url, null, config) as Promise<T>;
   }
 
   /**
    * POST request with retry
    */
-  async post(url, data, config = {}) {
-    return this._requestWithRetry('post', url, data, config);
+  async post<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+    return this._requestWithRetry('post', url, data, config) as Promise<T>;
   }
 
   /**
    * PATCH request with retry
    */
-  async patch(url, data, config = {}) {
-    return this._requestWithRetry('patch', url, data, config);
+  async patch<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+    return this._requestWithRetry('patch', url, data, config) as Promise<T>;
   }
 
   /**
    * DELETE request with retry
    */
-  async delete(url, config = {}) {
-    return this._requestWithRetry('delete', url, null, config);
+  async delete<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<T> {
+    return this._requestWithRetry('delete', url, null, config) as Promise<T>;
   }
 
   /**
    * Setup request and response interceptors
    */
-  _setupInterceptors() {
+  private _setupInterceptors(): void {
     // Request interceptor for logging
     this.client.interceptors.request.use(
       (config) => {
-        console.info(`[HTTP] ${config.method.toUpperCase()} ${config.url}`);
+        console.info(`[HTTP] ${config.method?.toUpperCase()} ${config.url}`);
         return config;
       },
       (error) => {
@@ -91,26 +95,41 @@ class HttpClient {
   /**
    * Make request with retry logic
    */
-  async _requestWithRetry(method, url, data, config, retryCount = 0) {
+  private async _requestWithRetry(
+    method: HttpMethod,
+    url: string,
+    data?: unknown,
+    config?: AxiosRequestConfig,
+    retryCount: number = 0,
+  ): Promise<unknown> {
     try {
-      const response = await this.client[method](url, data, config);
+      let response: AxiosResponse;
+
+      if (method === 'get' || method === 'delete') {
+        response = await this.client[method](url, config);
+      } else {
+        response = await this.client[method](url, data, config);
+      }
+
       return response.data;
     } catch (error) {
-      if (this._shouldRetry(error, retryCount)) {
+      const axiosError = error as AxiosError;
+
+      if (this._shouldRetry(axiosError, retryCount)) {
         const delay = this._getRetryDelay(retryCount);
         console.warn(`[HTTP] Retrying request after ${delay}ms (attempt ${retryCount + 1})`);
         await this._sleep(delay);
         return this._requestWithRetry(method, url, data, config, retryCount + 1);
       }
 
-      throw this._transformError(error);
+      throw this._transformError(axiosError as AxiosError<ApiErrorResponse>);
     }
   }
 
   /**
    * Determine if request should be retried
    */
-  _shouldRetry(error, retryCount) {
+  private _shouldRetry(error: AxiosError, retryCount: number): boolean {
     if (retryCount >= API_CONFIG.MAX_RETRIES) {
       return false;
     }
@@ -128,21 +147,21 @@ class HttpClient {
   /**
    * Calculate retry delay with exponential backoff
    */
-  _getRetryDelay(retryCount) {
+  private _getRetryDelay(retryCount: number): number {
     return API_CONFIG.RETRY_DELAY * Math.pow(2, retryCount);
   }
 
   /**
    * Sleep for specified milliseconds
    */
-  _sleep(ms) {
+  private _sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   /**
    * Transform axios error to custom error
    */
-  _transformError(error) {
+  private _transformError(error: AxiosError<ApiErrorResponse>): ApiError {
     if (!error.response) {
       return new ApiError(`Network error: ${error.message}`, 0, null);
     }
@@ -150,12 +169,13 @@ class HttpClient {
     const { status, data } = error.response;
     let message = `API request failed with status ${status}`;
 
-    if (data && data.errors && data.errors.length > 0) {
-      message = data.errors[0].detail || data.errors[0].title || message;
+    if (data?.errors && data.errors.length > 0) {
+      const firstError = data.errors[0];
+      if (firstError) {
+        message = firstError.detail || firstError.title || message;
+      }
     }
 
     return new ApiError(message, status, data);
   }
 }
-
-module.exports = HttpClient;

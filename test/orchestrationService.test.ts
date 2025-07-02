@@ -1,9 +1,10 @@
-const orchestrationService = require('../src/services/orchestrationService');
-const appStoreService = require('../src/services/appStoreService');
-const versioningService = require('../src/services/versioningService');
+import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { determineNextVersion } from '../src/services/orchestrationService.js';
+import * as appStoreService from '../src/services/appStoreService.js';
+import * as versioningService from '../src/services/versioningService.js';
 
-jest.mock('../src/services/appStoreService');
-jest.mock('../src/services/versioningService');
+vi.mock('../src/services/appStoreService.js');
+vi.mock('../src/services/versioningService.js');
 
 describe('orchestrationService - 統合テスト', () => {
   const mockToken = 'mock-jwt-token';
@@ -11,7 +12,7 @@ describe('orchestrationService - 統合テスト', () => {
   const mockPlatform = 'IOS';
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('determineNextVersion', () => {
@@ -23,25 +24,25 @@ describe('orchestrationService - 統合テスト', () => {
         attributes: { versionString: '1.0.0' },
       };
 
-      appStoreService.findApp.mockResolvedValue(mockApp);
-      appStoreService.getLiveVersion.mockResolvedValue({
+      vi.mocked(appStoreService.findApp).mockResolvedValue(mockApp);
+      vi.mocked(appStoreService.getLiveVersion).mockResolvedValue({
         liveVersionInfo: mockLiveVersionInfo,
         liveVersion: '1.0.0',
       });
-      appStoreService.getMaxBuildNumber.mockResolvedValue(5);
-      appStoreService.checkVersionExists.mockResolvedValue(null);
-      appStoreService.createNewVersion.mockResolvedValue({
+      vi.mocked(appStoreService.getMaxBuildNumber).mockResolvedValue(5);
+      vi.mocked(appStoreService.checkVersionExists).mockResolvedValue(null);
+      vi.mocked(appStoreService.createNewVersion).mockResolvedValue({
         id: 'new-version-123',
-      });
+      } as any);
 
-      versioningService.determineNextVersionAndBuild.mockResolvedValue({
+      vi.mocked(versioningService.determineNextVersionAndBuild).mockResolvedValue({
         version: '1.0.1',
         buildNumber: 6,
         action: 'new_version',
       });
 
       // Execute
-      const result = await orchestrationService.determineNextVersion({
+      const result = await determineNextVersion({
         bundleId: mockBundleId,
         platform: mockPlatform,
         createNewVersion: true,
@@ -87,21 +88,21 @@ describe('orchestrationService - 統合テスト', () => {
         attributes: { versionString: '1.0.0' },
       };
 
-      appStoreService.findApp.mockResolvedValue(mockApp);
-      appStoreService.getLiveVersion.mockResolvedValue({
+      vi.mocked(appStoreService.findApp).mockResolvedValue(mockApp);
+      vi.mocked(appStoreService.getLiveVersion).mockResolvedValue({
         liveVersionInfo: mockLiveVersionInfo,
         liveVersion: '1.0.0',
       });
-      appStoreService.getMaxBuildNumber.mockResolvedValue(5);
+      vi.mocked(appStoreService.getMaxBuildNumber).mockResolvedValue(5);
 
-      versioningService.determineNextVersionAndBuild.mockResolvedValue({
+      vi.mocked(versioningService.determineNextVersionAndBuild).mockResolvedValue({
         version: '1.0.1',
         buildNumber: 3,
         action: 'increment_build',
       });
 
       // Execute
-      const result = await orchestrationService.determineNextVersion({
+      const result = await determineNextVersion({
         bundleId: mockBundleId,
         platform: mockPlatform,
         createNewVersion: false,
@@ -129,21 +130,21 @@ describe('orchestrationService - 統合テスト', () => {
         attributes: { versionString: '1.0.0' },
       };
 
-      appStoreService.findApp.mockResolvedValue(mockApp);
-      appStoreService.getLiveVersion.mockResolvedValue({
+      vi.mocked(appStoreService.findApp).mockResolvedValue(mockApp);
+      vi.mocked(appStoreService.getLiveVersion).mockResolvedValue({
         liveVersionInfo: mockLiveVersionInfo,
         liveVersion: '1.0.0',
       });
-      appStoreService.getMaxBuildNumber.mockResolvedValue(5);
+      vi.mocked(appStoreService.getMaxBuildNumber).mockResolvedValue(5);
 
-      versioningService.determineNextVersionAndBuild.mockResolvedValue({
+      vi.mocked(versioningService.determineNextVersionAndBuild).mockResolvedValue({
         version: undefined,
         buildNumber: undefined,
         action: 'skip',
       });
 
       // Execute
-      const result = await orchestrationService.determineNextVersion({
+      const result = await determineNextVersion({
         bundleId: mockBundleId,
         platform: mockPlatform,
         createNewVersion: false,
@@ -169,21 +170,21 @@ describe('orchestrationService - 統合テスト', () => {
         attributes: { versionString: '1.0.0' },
       };
 
-      appStoreService.findApp.mockResolvedValue(mockApp);
-      appStoreService.getLiveVersion.mockResolvedValue({
+      vi.mocked(appStoreService.findApp).mockResolvedValue(mockApp);
+      vi.mocked(appStoreService.getLiveVersion).mockResolvedValue({
         liveVersionInfo: mockLiveVersionInfo,
         liveVersion: '1.0.0',
       });
-      appStoreService.getMaxBuildNumber.mockResolvedValue(5);
+      vi.mocked(appStoreService.getMaxBuildNumber).mockResolvedValue(5);
 
-      versioningService.determineNextVersionAndBuild.mockResolvedValue({
+      vi.mocked(versioningService.determineNextVersionAndBuild).mockResolvedValue({
         version: '1.0.1',
         buildNumber: 6,
         action: 'new_version',
       });
 
       // Execute
-      const result = await orchestrationService.determineNextVersion({
+      const result = await determineNextVersion({
         bundleId: mockBundleId,
         platform: mockPlatform,
         createNewVersion: false, // false に設定
@@ -197,13 +198,13 @@ describe('orchestrationService - 統合テスト', () => {
 
     test('アプリが見つからない場合のエラーハンドリング', async () => {
       // Mock setup
-      appStoreService.findApp.mockRejectedValue(
+      vi.mocked(appStoreService.findApp).mockRejectedValue(
         new Error('No app found with bundle ID: com.example.app'),
       );
 
       // Execute & Assert
       await expect(
-        orchestrationService.determineNextVersion({
+        determineNextVersion({
           bundleId: mockBundleId,
           platform: mockPlatform,
           createNewVersion: false,
@@ -215,14 +216,14 @@ describe('orchestrationService - 統合テスト', () => {
     test('ライブバージョンが存在しない場合のエラーハンドリング', async () => {
       // Mock setup
       const mockApp = { id: 'app-123' };
-      appStoreService.findApp.mockResolvedValue(mockApp);
-      appStoreService.getLiveVersion.mockRejectedValue(
+      vi.mocked(appStoreService.findApp).mockResolvedValue(mockApp);
+      vi.mocked(appStoreService.getLiveVersion).mockRejectedValue(
         new Error('No live version found for app. This action requires a published app.'),
       );
 
       // Execute & Assert
       await expect(
-        orchestrationService.determineNextVersion({
+        determineNextVersion({
           bundleId: mockBundleId,
           platform: mockPlatform,
           createNewVersion: false,
@@ -239,26 +240,26 @@ describe('orchestrationService - 統合テスト', () => {
         attributes: { versionString: '2.3.4' },
       };
 
-      appStoreService.findApp.mockResolvedValue(mockApp);
-      appStoreService.getLiveVersion.mockResolvedValue({
+      vi.mocked(appStoreService.findApp).mockResolvedValue(mockApp);
+      vi.mocked(appStoreService.getLiveVersion).mockResolvedValue({
         liveVersionInfo: mockLiveVersionInfo,
         liveVersion: '2.3.4',
       });
-      appStoreService.getMaxBuildNumber.mockResolvedValue(10);
+      vi.mocked(appStoreService.getMaxBuildNumber).mockResolvedValue(10);
 
-      versioningService.determineNextVersionAndBuild.mockResolvedValue({
+      vi.mocked(versioningService.determineNextVersionAndBuild).mockResolvedValue({
         version: '2.3.5',
         buildNumber: 11,
         action: 'new_version',
       });
 
-      appStoreService.createNewVersion.mockResolvedValue({
+      vi.mocked(appStoreService.createNewVersion).mockResolvedValue({
         id: 'new-version-456',
         attributes: { versionString: '2.3.5' },
-      });
+      } as any);
 
       // Execute
-      const result = await orchestrationService.determineNextVersion({
+      const result = await determineNextVersion({
         bundleId: mockBundleId,
         platform: 'MAC_OS', // 異なるプラットフォームでテスト
         createNewVersion: true,

@@ -1,13 +1,16 @@
-'use strict';
-
-const { ValidationError } = require('../../shared/errors/customErrors');
-const { VERSION_REGEX } = require('../../shared/constants');
+import { ValidationError } from '../../shared/errors/customErrors.js';
+import { VERSION_REGEX } from '../../shared/constants/index.js';
 
 /**
  * Value object representing a semantic version
  */
-class Version {
-  constructor(versionString) {
+export class Version {
+  readonly major: number;
+  readonly minor: number;
+  readonly patch: number;
+  private readonly _versionString: string;
+
+  constructor(versionString: string) {
     if (!versionString || typeof versionString !== 'string') {
       throw new ValidationError('Version must be a non-empty string', 'version', versionString);
     }
@@ -20,24 +23,33 @@ class Version {
       );
     }
 
-    const [major, minor, patch] = versionString.split('.').map(Number);
-    this.major = major;
-    this.minor = minor;
-    this.patch = patch;
+    const parts = versionString.split('.').map(Number);
+    if (parts.length !== 3 || parts.some(isNaN)) {
+      throw new ValidationError(
+        'Version must be in format X.Y.Z with valid numbers',
+        'version',
+        versionString,
+      );
+    }
+
+    const [major, minor, patch] = parts;
+    this.major = major!;
+    this.minor = minor!;
+    this.patch = patch!;
     this._versionString = versionString;
   }
 
   /**
    * Get the version as a string
    */
-  toString() {
+  toString(): string {
     return this._versionString;
   }
 
   /**
    * Create a new version with incremented patch number
    */
-  incrementPatch() {
+  incrementPatch(): Version {
     const newVersionString = `${this.major}.${this.minor}.${this.patch + 1}`;
     return new Version(newVersionString);
   }
@@ -45,7 +57,7 @@ class Version {
   /**
    * Create a new version with incremented minor number
    */
-  incrementMinor() {
+  incrementMinor(): Version {
     const newVersionString = `${this.major}.${this.minor + 1}.0`;
     return new Version(newVersionString);
   }
@@ -53,7 +65,7 @@ class Version {
   /**
    * Create a new version with incremented major number
    */
-  incrementMajor() {
+  incrementMajor(): Version {
     const newVersionString = `${this.major + 1}.0.0`;
     return new Version(newVersionString);
   }
@@ -62,7 +74,7 @@ class Version {
    * Compare with another version
    * @returns {number} -1 if this < other, 0 if equal, 1 if this > other
    */
-  compareTo(other) {
+  compareTo(other: Version): number {
     if (!(other instanceof Version)) {
       throw new ValidationError('Can only compare with another Version instance', 'other', other);
     }
@@ -82,9 +94,7 @@ class Version {
   /**
    * Check if versions are equal
    */
-  equals(other) {
+  equals(other: Version): boolean {
     return this.compareTo(other) === 0;
   }
 }
-
-module.exports = Version;
