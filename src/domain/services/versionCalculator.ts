@@ -3,7 +3,7 @@ import type { BuildNumber } from '../valueObjects/buildNumber.js';
 import type { AppStoreVersion } from '../entities/appStoreVersion.js';
 import { VERSION_ACTIONS } from '../../shared/constants/index.js';
 import type { VersionAction } from '../../shared/constants/index.js';
-import { BusinessLogicError } from '../../shared/errors/customErrors.js';
+import { createBusinessLogicError, ERROR_CODES } from '../../shared/errors/customErrors.js';
 
 type IncrementType = 'patch' | 'minor' | 'major';
 
@@ -29,8 +29,9 @@ export class VersionCalculator {
     incrementType: IncrementType = 'patch',
   ): Version {
     if (!(currentVersion instanceof Version)) {
-      throw new BusinessLogicError(
+      throw createBusinessLogicError(
         'Current version must be a Version instance',
+        ERROR_CODES.VALIDATION_ERROR,
         'Invalid version type',
       );
     }
@@ -43,8 +44,9 @@ export class VersionCalculator {
       case 'major':
         return currentVersion.incrementMajor();
       default:
-        throw new BusinessLogicError(
+        throw createBusinessLogicError(
           `Invalid increment type: ${incrementType}`,
+          ERROR_CODES.VALIDATION_ERROR,
           'Invalid increment type',
         );
     }

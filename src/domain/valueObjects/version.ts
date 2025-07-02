@@ -1,4 +1,4 @@
-import { ValidationError } from '../../shared/errors/customErrors.js';
+import { createValidationError } from '../../shared/errors/customErrors.js';
 import { VERSION_REGEX } from '../../shared/constants/index.js';
 
 /**
@@ -12,11 +12,11 @@ export class Version {
 
   constructor(versionString: string) {
     if (!versionString || typeof versionString !== 'string') {
-      throw new ValidationError('Version must be a non-empty string', 'version', versionString);
+      throw createValidationError('Version must be a non-empty string', 'version', versionString);
     }
 
     if (!VERSION_REGEX.test(versionString)) {
-      throw new ValidationError(
+      throw createValidationError(
         'Version must be in format X.Y.Z (e.g., 1.0.0)',
         'version',
         versionString,
@@ -25,7 +25,7 @@ export class Version {
 
     const parts = versionString.split('.').map(Number);
     if (parts.length !== 3 || parts.some(isNaN)) {
-      throw new ValidationError(
+      throw createValidationError(
         'Version must be in format X.Y.Z with valid numbers',
         'version',
         versionString,
@@ -76,7 +76,7 @@ export class Version {
    */
   compareTo(other: Version): number {
     if (!(other instanceof Version)) {
-      throw new ValidationError('Can only compare with another Version instance', 'other', other);
+      throw createValidationError('Can only compare with another Version instance', 'other', other);
     }
 
     if (this.major !== other.major) {

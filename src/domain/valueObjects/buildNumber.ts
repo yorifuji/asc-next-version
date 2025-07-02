@@ -1,4 +1,4 @@
-import { ValidationError } from '../../shared/errors/customErrors.js';
+import { createValidationError } from '../../shared/errors/customErrors.js';
 
 /**
  * Value object representing a build number
@@ -12,7 +12,7 @@ export class BuildNumber {
     if (typeof value === 'string') {
       // Check if string contains only digits
       if (!/^\d+$/.test(value)) {
-        throw new ValidationError(
+        throw createValidationError(
           'Build number must be a non-negative integer',
           'buildNumber',
           value,
@@ -22,7 +22,7 @@ export class BuildNumber {
     }
 
     if (typeof parsedValue !== 'number' || !Number.isInteger(parsedValue) || parsedValue < 0) {
-      throw new ValidationError(
+      throw createValidationError(
         'Build number must be a non-negative integer',
         'buildNumber',
         value,
@@ -58,7 +58,7 @@ export class BuildNumber {
    */
   compareTo(other: BuildNumber): number {
     if (!(other instanceof BuildNumber)) {
-      throw new ValidationError(
+      throw createValidationError(
         'Can only compare with another BuildNumber instance',
         'other',
         other,

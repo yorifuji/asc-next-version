@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { JWT_CONFIG } from '../../shared/constants/index.js';
-import { AuthenticationError, ValidationError } from '../../shared/errors/customErrors.js';
+import { AppStoreConnectError, createValidationError, ERROR_CODES } from '../../shared/errors/customErrors.js';
 import type { ErrorWithDetails } from '../../shared/types/api.js';
 
 /**
@@ -42,9 +42,10 @@ export class JwtGenerator {
       return jwt.sign(payload, this.privateKey, options);
     } catch (error) {
       const err = error as ErrorWithDetails;
-      throw new AuthenticationError(
+      throw new AppStoreConnectError(
         `Failed to generate JWT token: ${err.message}`,
-        'JWT_GENERATION_FAILED',
+        ERROR_CODES.AUTHENTICATION_ERROR,
+        { reason: 'JWT_GENERATION_FAILED' },
       );
     }
   }
@@ -54,15 +55,15 @@ export class JwtGenerator {
    */
   private _validateInputs(issuerId: string, keyId: string, privateKey: string): void {
     if (!issuerId || typeof issuerId !== 'string') {
-      throw new ValidationError('Issuer ID must be a non-empty string', 'issuerId', issuerId);
+      throw createValidationError('Issuer ID must be a non-empty string', 'issuerId', issuerId);
     }
 
     if (!keyId || typeof keyId !== 'string') {
-      throw new ValidationError('Key ID must be a non-empty string', 'keyId', keyId);
+      throw createValidationError('Key ID must be a non-empty string', 'keyId', keyId);
     }
 
     if (!privateKey || typeof privateKey !== 'string') {
-      throw new ValidationError(
+      throw createValidationError(
         'Private key must be a non-empty string',
         'privateKey',
         '[REDACTED]',

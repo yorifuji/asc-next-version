@@ -1,8 +1,8 @@
-import { BuildNumber } from '../../domain/valueObjects/buildNumber.js';
+import type { BuildNumber } from '../../domain/valueObjects/buildNumber.js';
 import type { Version } from '../../domain/valueObjects/version.js';
 import { VersionCalculator } from '../../domain/services/versionCalculator.js';
-import { BusinessLogicError } from '../../shared/errors/customErrors.js';
-import { APP_STORE_STATES, VERSION_ACTIONS } from '../../shared/constants/index.js';
+import { AppVersionService } from '../../domain/services/appVersionService.js';
+import { VERSION_ACTIONS } from '../../shared/constants/index.js';
 import type { Platform } from '../../shared/constants/index.js';
 import type { AppStoreConnectClient } from '../../infrastructure/api/appStoreConnectClient.js';
 import type { AppStoreVersion } from '../../domain/entities/appStoreVersion.js';
@@ -41,9 +41,11 @@ interface ActionResult {
  */
 export class DetermineNextVersionUseCase {
   private appStoreClient: AppStoreConnectClient;
+  private appVersionService: AppVersionService;
 
   constructor(appStoreConnectClient: AppStoreConnectClient) {
     this.appStoreClient = appStoreConnectClient;
+    this.appVersionService = new AppVersionService(appStoreConnectClient);
   }
 
   /**
@@ -59,11 +61,11 @@ export class DetermineNextVersionUseCase {
     console.info(`Found app: ${app.name} (${app.id})`);
 
     // Step 2: Get the live version
-    const liveVersion = await this._getLiveVersion(app.id);
+    const liveVersion = await this.appVersionService.getLiveVersion(app.id);
     console.info(`Current live version: ${liveVersion.version}`);
 
     // Step 3: Get the maximum build number for live version
-    const liveBuildNumber = await this._getMaxBuildNumber(liveVersion, app.id);
+    const liveBuildNumber = await this.appVersionService.getMaxBuildNumber(liveVersion, app.id);
     console.info(`Current live build: ${liveBuildNumber}`);
 
     // Step 4: Calculate the next version
@@ -71,7 +73,7 @@ export class DetermineNextVersionUseCase {
     console.info(`Calculated next version: ${nextVersion}`);
 
     // Step 5: Check if the next version already exists
-    const existingNextVersion = await this._findVersion(app.id, nextVersion);
+    const existingNextVersion = await this.appVersionService.findVersion(app.id, nextVersion.toString());
 
     // Step 6: Determine action based on version state
     const actionResult = await this._determineActionWithBuildNumber(
@@ -101,113 +103,6 @@ export class DetermineNextVersionUseCase {
     };
   }
 
-  /**
-   * Get the current live version
-   */
-  private async _getLiveVersion(appId: string): Promise<AppStoreVersion> {
-    const versions = await this.appStoreClient.getAppStoreVersions(appId, {
-      state: APP_STORE_STATES.READY_FOR_SALE,
-      sort: '-versionString',
-      limit: 10,
-    });
-
-    if (versions.length === 0) {
-      throw new BusinessLogicError(
-        'No live version found for app. This action requires a published app.',
-        'NO_LIVE_VERSION',
-      );
-    }
-
-    // Debug: Log all returned versions
-    console.info(`Found ${versions.length} versions from API:`);
-    versions.forEach((version, index) => {
-      console.info(`  [${index}] ${version.version} (${version.state})`);
-    });
-
-    // Double-check: filter only READY_FOR_SALE versions
-    const readyForSaleVersions = versions.filter(
-      (version) => version.state === APP_STORE_STATES.READY_FOR_SALE,
-    );
-
-    if (readyForSaleVersions.length === 0) {
-      throw new BusinessLogicError(
-        'No live version found for app. This action requires a published app.',
-        'NO_LIVE_VERSION',
-      );
-    }
-
-    console.info(`Filtered to ${readyForSaleVersions.length} READY_FOR_SALE versions`);
-
-    // Sort by version string descending (latest first)
-    readyForSaleVersions.sort((versionA, versionB) => versionB.version.compareTo(versionA.version));
-
-    // Get the latest READY_FOR_SALE version
-    const liveVersion = readyForSaleVersions[0];
-    if (!liveVersion) {
-      throw new BusinessLogicError('No live version found after filtering', 'NO_LIVE_VERSION');
-    }
-
-    // Get build number for live version
-    const buildNumber = await this.appStoreClient.getBuildForVersion(liveVersion.id);
-    liveVersion.buildNumber = buildNumber;
-
-    return liveVersion;
-  }
-
-  /**
-   * Get maximum build number using fallback strategy
-   */
-  private async _getMaxBuildNumber(version: AppStoreVersion, appId: string): Promise<BuildNumber> {
-    // Try to get build number from version directly
-    if (version.buildNumber && version.buildNumber.getValue() > 0) {
-      return version.buildNumber;
-    }
-
-    // Fallback: search builds
-    const builds = await this.appStoreClient.getBuilds(appId, {
-      version: version.version.toString(),
-      limit: 1,
-    });
-
-    if (builds.length > 0 && builds[0]) {
-      return builds[0].version;
-    }
-
-    return new BuildNumber(0);
-  }
-
-  /**
-   * Find a specific version
-   */
-  private async _findVersion(appId: string, version: Version): Promise<AppStoreVersion | null> {
-    const versions = await this.appStoreClient.getAppStoreVersions(appId, {
-      version: version.toString(),
-    });
-
-    console.info(
-      `Searching for version ${version.toString()}, found ${versions.length} version(s)`,
-    );
-
-    if (versions.length > 0) {
-      versions.forEach((v, index) => {
-        console.info(`  [${index}] Version: ${v.version.toString()}, State: ${v.state}`);
-      });
-    }
-
-    // Find exact version match
-    const exactMatch = versions.find((v) => v.version.toString() === version.toString());
-
-    if (exactMatch) {
-      console.info(
-        `Found exact match: ${exactMatch.version.toString()} in state ${exactMatch.state}`,
-      );
-      exactMatch.buildNumber = new BuildNumber(0);
-      return exactMatch;
-    }
-
-    console.info(`No exact match found for version ${version.toString()}`);
-    return null;
-  }
 
   /**
    * Determine action with proper build number calculation
@@ -221,7 +116,7 @@ export class DetermineNextVersionUseCase {
 
     // If incrementing build on existing version, ensure we have the correct max build
     if (result.action === VERSION_ACTIONS.INCREMENT_BUILD && existingVersion) {
-      const existingMaxBuild = await this._getMaxBuildNumber(existingVersion, appId);
+      const existingMaxBuild = await this.appVersionService.getMaxBuildNumber(existingVersion, appId);
       if (existingMaxBuild.getValue() > 0) {
         result.buildNumber = existingMaxBuild.increment();
       }

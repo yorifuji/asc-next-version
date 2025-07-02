@@ -1,12 +1,15 @@
-import { HttpClient } from './httpClient.js';
+import axios from 'axios';
+import type { AxiosError, AxiosInstance } from 'axios';
 import { App } from '../../domain/entities/app.js';
 import { AppStoreVersion } from '../../domain/entities/appStoreVersion.js';
 import { BuildNumber } from '../../domain/valueObjects/buildNumber.js';
 import type { Version } from '../../domain/valueObjects/version.js';
-import { ApiError } from '../../shared/errors/customErrors.js';
+import { createApiError } from '../../shared/errors/customErrors.js';
+import { API_CONFIG } from '../../shared/constants/index.js';
 import type { JwtGenerator } from '../auth/jwtGenerator.js';
 import type { AppStoreState, Platform } from '../../shared/constants/index.js';
 import type {
+  ApiErrorResponse,
   ApiResource,
   ApiResponse,
   AppAttributes,
@@ -41,14 +44,21 @@ interface Build {
  * Client for App Store Connect API
  */
 export class AppStoreConnectClient {
-  private httpClient: HttpClient;
+  private client: AxiosInstance;
   private jwtGenerator: JwtGenerator;
   private token: string = '';
 
   constructor(jwtGenerator: JwtGenerator) {
-    this.httpClient = new HttpClient();
+    this.client = axios.create({
+      baseURL: API_CONFIG.BASE_URL,
+      timeout: API_CONFIG.TIMEOUT,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
     this.jwtGenerator = jwtGenerator;
     this._refreshToken();
+    this._setupInterceptors();
   }
 
   /**
@@ -57,20 +67,20 @@ export class AppStoreConnectClient {
   async findApp(bundleId: string): Promise<App> {
     this._ensureValidToken();
 
-    const response = await this.httpClient.get<ApiResponse<AppAttributes>>('/apps', {
+    const response = await this.client.get<ApiResponse<AppAttributes>>('/apps', {
       params: {
         'filter[bundleId]': bundleId,
       },
     });
 
-    const data = response.data;
+    const data = response.data.data;
     if (!data || (Array.isArray(data) && data.length === 0)) {
-      throw new ApiError(`No app found with bundle ID: ${bundleId}`, 404, null);
+      throw createApiError(`No app found with bundle ID: ${bundleId}`, 404, null);
     }
 
     const appData = Array.isArray(data) ? data[0] : data;
     if (!appData) {
-      throw new ApiError(`No app found with bundle ID: ${bundleId}`, 404, null);
+      throw createApiError(`No app found with bundle ID: ${bundleId}`, 404, null);
     }
     return App.fromApiResponse(appData);
   }
@@ -101,12 +111,12 @@ export class AppStoreConnectClient {
       params.limit = filters.limit;
     }
 
-    const response = await this.httpClient.get<ApiResponse<AppStoreVersionAttributes>>(
+    const response = await this.client.get<ApiResponse<AppStoreVersionAttributes>>(
       `/apps/${appId}/appStoreVersions`,
       { params },
     );
 
-    const data = response.data;
+    const data = response.data.data;
     const versions = Array.isArray(data) ? data : [data];
     return versions.map((versionData) => AppStoreVersion.fromApiResponse(versionData));
   }
@@ -118,11 +128,11 @@ export class AppStoreConnectClient {
     this._ensureValidToken();
 
     try {
-      const response = await this.httpClient.get<ApiResponse<BuildAttributes>>(
+      const response = await this.client.get<ApiResponse<BuildAttributes>>(
         `/appStoreVersions/${versionId}/build`,
       );
 
-      const data = response.data;
+      const data = response.data.data;
       const build = Array.isArray(data) ? data[0] : data;
 
       if (build?.attributes) {
@@ -131,7 +141,7 @@ export class AppStoreConnectClient {
 
       return new BuildNumber(0);
     } catch (error) {
-      if ((error as ApiError).statusCode === 404) {
+      if ((error as { statusCode?: number }).statusCode === 404) {
         // No build associated with this version yet
         return new BuildNumber(0);
       }
@@ -158,9 +168,9 @@ export class AppStoreConnectClient {
       params['filter[preReleaseVersion]'] = filters.preReleaseVersion;
     }
 
-    const response = await this.httpClient.get<ApiResponse<BuildAttributes>>('/builds', { params });
+    const response = await this.client.get<ApiResponse<BuildAttributes>>('/builds', { params });
 
-    const data = response.data;
+    const data = response.data.data;
     if (!data || (Array.isArray(data) && data.length === 0)) {
       return [];
     }
@@ -189,12 +199,12 @@ export class AppStoreConnectClient {
       limit: 1,
     };
 
-    const response = await this.httpClient.get<ApiResponse<PreReleaseVersionAttributes>>(
+    const response = await this.client.get<ApiResponse<PreReleaseVersionAttributes>>(
       '/preReleaseVersions',
       { params },
     );
 
-    const data = response.data;
+    const data = response.data.data;
     if (!data) return [];
 
     return Array.isArray(data) ? data : [data];
@@ -228,17 +238,56 @@ export class AppStoreConnectClient {
       },
     };
 
-    const response = await this.httpClient.post<ApiResponse<AppStoreVersionAttributes>>(
+    const response = await this.client.post<ApiResponse<AppStoreVersionAttributes>>(
       '/appStoreVersions',
       request,
     );
 
-    const data = response.data;
+    const data = response.data.data;
     const versionData = Array.isArray(data) ? data[0] : data;
     if (!versionData) {
-      throw new ApiError('Failed to create app store version', 500, null);
+      throw createApiError('Failed to create app store version', 500, null);
     }
     return AppStoreVersion.fromApiResponse(versionData);
+  }
+
+  /**
+   * Setup interceptors
+   */
+  private _setupInterceptors(): void {
+    // Request interceptor for logging
+    this.client.interceptors.request.use(
+      (config) => {
+        console.info(`[API] ${config.method?.toUpperCase()} ${config.url}`);
+        return config;
+      },
+      (error) => {
+        console.error('[API] Request error:', error.message);
+        return Promise.reject(error);
+      },
+    );
+
+    // Response interceptor for error handling
+    this.client.interceptors.response.use(
+      (response) => response,
+      (error: AxiosError<ApiErrorResponse>) => {
+        if (!error.response) {
+          throw createApiError(`Network error: ${error.message}`, 0, null);
+        }
+
+        const { status, data } = error.response;
+        let message = `API request failed with status ${status}`;
+
+        if (data?.errors && data.errors.length > 0) {
+          const firstError = data.errors[0];
+          if (firstError) {
+            message = firstError.detail || firstError.title || message;
+          }
+        }
+
+        throw createApiError(message, status, data);
+      },
+    );
   }
 
   /**
@@ -246,7 +295,7 @@ export class AppStoreConnectClient {
    */
   private _refreshToken(): void {
     this.token = this.jwtGenerator.generateToken();
-    this.httpClient.setAuthToken(this.token);
+    this.client.defaults.headers.common['Authorization'] = `Bearer ${this.token}`;
   }
 
   /**

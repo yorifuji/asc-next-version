@@ -4,7 +4,7 @@ import { AppStoreConnectClient } from '../../infrastructure/api/appStoreConnectC
 import { DetermineNextVersionUseCase } from '../../application/usecases/determineNextVersionUseCase.js';
 import { PLATFORMS } from '../../shared/constants/index.js';
 import type { Platform } from '../../shared/constants/index.js';
-import { ValidationError } from '../../shared/errors/customErrors.js';
+import { createValidationError } from '../../shared/errors/customErrors.js';
 import type { ErrorWithDetails } from '../../shared/types/api.js';
 
 interface Inputs {
@@ -80,7 +80,7 @@ export class GitHubAction {
 
     // Validate platform
     if (!Object.values(PLATFORMS).includes(platform)) {
-      throw new ValidationError(
+      throw createValidationError(
         `Invalid platform: ${platform}. Must be one of: ${Object.values(PLATFORMS).join(', ')}`,
         'platform',
         platform,
