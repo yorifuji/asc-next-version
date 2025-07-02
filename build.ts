@@ -12,7 +12,7 @@ async function buildAction() {
       target: 'node20',
       format: 'cjs',
       outfile: 'dist/index.cjs',
-      external: ['@actions/core', '@actions/github'], // GitHub Actionsのモジュールは外部化
+      // GitHub Actionsのモジュールもバンドルに含める
       banner: {
         js: '// @ts-nocheck\n/* eslint-disable */',
       },
