@@ -75,10 +75,12 @@ export class VersionCalculator {
       // Use the maximum of the existing version's build number and the current max build
       let nextBuild: BuildNumber;
       
+      
       if (nextVersion.buildNumber.getValue() > 0) {
         // If the existing version has builds, check which is higher
         const existingVersionNextBuild = nextVersion.getNextBuildNumber();
         const currentMaxNextBuild = currentMaxBuild.increment();
+        
         
         // Use the higher build number to avoid conflicts
         nextBuild = existingVersionNextBuild.getValue() > currentMaxNextBuild.getValue() 

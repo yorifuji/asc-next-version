@@ -135,7 +135,15 @@ export class AppStoreConnectClient {
       return new BuildNumber(0);
     }
 
-    return new BuildNumber(build.attributes.version);
+    const versionString = build.attributes.version;
+    const versionNumber = parseInt(versionString, 10);
+    
+    if (isNaN(versionNumber)) {
+      throw createApiError(`Invalid build version: ${versionString}`, 400, null);
+    }
+    
+    const buildNumber = new BuildNumber(versionNumber);
+    return buildNumber;
   }
 
   /**
@@ -167,7 +175,7 @@ export class AppStoreConnectClient {
     const builds = Array.isArray(data) ? data : [data];
     return builds.map((build) => ({
       id: build.id,
-      version: new BuildNumber(build.attributes.version),
+      version: new BuildNumber(parseInt(build.attributes.version, 10)),
       uploadedDate: build.attributes.uploadedDate,
       processingState: build.attributes.processingState,
     }));
