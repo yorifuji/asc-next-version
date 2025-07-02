@@ -153,6 +153,7 @@ jobs:
    ```
 
 3. **開発環境の確認**
+
    ```bash
    node --version  # v20.0.0以上が必要
    npm --version   # v10.0.0以上を推奨
@@ -272,17 +273,17 @@ npm run clean
 
 ### よく使うnpmスクリプト
 
-| コマンド             | 説明                                          |
-| -------------------- | --------------------------------------------- |
-| `npm test`           | 全テストを実行                                |
-| `npm run test:watch` | ファイル変更を監視してテストを自動実行        |
-| `npm run build`      | 本番用ビルド                                  |
-| `npm run watch`      | ファイル変更を監視して自動ビルド              |
-| `npm run lint:fix`   | ESLintの自動修正                              |
-| `npm run format`     | Prettierでコードをフォーマット                |
-| `npm run typecheck`  | TypeScriptの型チェック                        |
+| コマンド             | 説明                                           |
+| -------------------- | ---------------------------------------------- |
+| `npm test`           | 全テストを実行                                 |
+| `npm run test:watch` | ファイル変更を監視してテストを自動実行         |
+| `npm run build`      | 本番用ビルド                                   |
+| `npm run watch`      | ファイル変更を監視して自動ビルド               |
+| `npm run lint:fix`   | ESLintの自動修正                               |
+| `npm run format`     | Prettierでコードをフォーマット                 |
+| `npm run typecheck`  | TypeScriptの型チェック                         |
 | `npm run verify`     | リント、フォーマット、型チェック、テストを実行 |
-| `npm run clean`      | ビルド成果物とカバレッジレポートを削除        |
+| `npm run clean`      | ビルド成果物とカバレッジレポートを削除         |
 
 ### トラブルシューティング
 

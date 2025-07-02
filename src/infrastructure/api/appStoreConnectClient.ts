@@ -101,7 +101,10 @@ export class AppStoreConnectClient {
       params.limit = filters.limit;
     }
 
-    const response = await this.httpClient.get<ApiResponse<AppStoreVersionAttributes>>(`/apps/${appId}/appStoreVersions`, { params });
+    const response = await this.httpClient.get<ApiResponse<AppStoreVersionAttributes>>(
+      `/apps/${appId}/appStoreVersions`,
+      { params },
+    );
 
     const data = response.data;
     const versions = Array.isArray(data) ? data : [data];
@@ -115,11 +118,13 @@ export class AppStoreConnectClient {
     this._ensureValidToken();
 
     try {
-      const response = await this.httpClient.get<ApiResponse<BuildAttributes>>(`/appStoreVersions/${versionId}/build`);
+      const response = await this.httpClient.get<ApiResponse<BuildAttributes>>(
+        `/appStoreVersions/${versionId}/build`,
+      );
 
       const data = response.data;
       const build = Array.isArray(data) ? data[0] : data;
-      
+
       if (build?.attributes) {
         return new BuildNumber(build.attributes.version);
       }
@@ -172,7 +177,10 @@ export class AppStoreConnectClient {
   /**
    * Get pre-release versions
    */
-  async getPreReleaseVersions(appId: string, version: string): Promise<ApiResource<PreReleaseVersionAttributes>[]> {
+  async getPreReleaseVersions(
+    appId: string,
+    version: string,
+  ): Promise<ApiResource<PreReleaseVersionAttributes>[]> {
     this._ensureValidToken();
 
     const params = {
@@ -181,11 +189,14 @@ export class AppStoreConnectClient {
       limit: 1,
     };
 
-    const response = await this.httpClient.get<ApiResponse<PreReleaseVersionAttributes>>('/preReleaseVersions', { params });
+    const response = await this.httpClient.get<ApiResponse<PreReleaseVersionAttributes>>(
+      '/preReleaseVersions',
+      { params },
+    );
 
     const data = response.data;
     if (!data) return [];
-    
+
     return Array.isArray(data) ? data : [data];
   }
 
@@ -217,7 +228,10 @@ export class AppStoreConnectClient {
       },
     };
 
-    const response = await this.httpClient.post<ApiResponse<AppStoreVersionAttributes>>('/appStoreVersions', request);
+    const response = await this.httpClient.post<ApiResponse<AppStoreVersionAttributes>>(
+      '/appStoreVersions',
+      request,
+    );
 
     const data = response.data;
     const versionData = Array.isArray(data) ? data[0] : data;

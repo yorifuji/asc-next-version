@@ -12,14 +12,17 @@ type VersionInfo = ApiResource<AppStoreVersionAttributes>;
 /**
  * Find app by bundle ID
  */
-export async function findApp(bundleId: string, token: string): Promise<ApiResource<AppAttributes>> {
+export async function findApp(
+  bundleId: string,
+  token: string,
+): Promise<ApiResource<AppAttributes>> {
   const appsResponse = await appStoreClient.getApps(bundleId, token);
   const data = appsResponse.data;
-  
+
   if (!data || (Array.isArray(data) && data.length === 0)) {
     throw new Error(`No app found with bundle ID: ${bundleId}`);
   }
-  
+
   const app = Array.isArray(data) ? data[0] : data;
   if (!app) {
     throw new Error(`No app found with bundle ID: ${bundleId}`);
@@ -49,7 +52,7 @@ export async function getLiveVersion(
   if (!liveVersionInfo) {
     throw new Error('No live version found for app. This action requires a published app.');
   }
-  
+
   const liveVersion = liveVersionInfo.attributes.versionString;
   core.info(`Found live version: ${liveVersion}`);
 
@@ -97,7 +100,7 @@ export async function getMaxBuildNumber(
 
     const preReleaseData = preReleaseVersionsResponse.data;
     const preReleaseVersions = Array.isArray(preReleaseData) ? preReleaseData : [preReleaseData];
-    
+
     if (preReleaseVersions.length > 0 && preReleaseVersions[0]) {
       const preReleaseVersionId = preReleaseVersions[0].id;
       const buildsResponse = await appStoreClient.getBuilds(
@@ -107,7 +110,7 @@ export async function getMaxBuildNumber(
 
       const buildsData = buildsResponse.data;
       const builds = Array.isArray(buildsData) ? buildsData : [buildsData];
-      
+
       if (builds.length > 0 && builds[0]) {
         const buildNumber = parseInt(builds[0].attributes.version, 10);
         core.info(
@@ -130,7 +133,7 @@ export async function getMaxBuildNumber(
 
     const directBuildsData = directBuildsResponse.data;
     const directBuilds = Array.isArray(directBuildsData) ? directBuildsData : [directBuildsData];
-    
+
     if (directBuilds.length > 0 && directBuilds[0]) {
       const buildNumber = parseInt(directBuilds[0].attributes.version, 10);
       core.info(`Found build via direct builds search for ${versionString}: ${buildNumber}`);
@@ -154,7 +157,12 @@ export async function createNewVersion(
   platform: string,
   token: string,
 ): Promise<ApiResource<AppStoreVersionAttributes>> {
-  const response = await appStoreClient.createAppStoreVersion(appId, versionString, platform, token);
+  const response = await appStoreClient.createAppStoreVersion(
+    appId,
+    versionString,
+    platform,
+    token,
+  );
   const data = response.data;
   const version = Array.isArray(data) ? data[0] : data;
   if (!version) {
