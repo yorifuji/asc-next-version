@@ -16,7 +16,6 @@ export class AppVersionService {
   async getLiveVersion(appId: string): Promise<AppStoreVersion> {
     const versions = await this.appStoreClient.getAppStoreVersions(appId, {
       state: APP_STORE_STATES.READY_FOR_SALE,
-      sort: '-versionString',
       limit: 10,
     });
 
