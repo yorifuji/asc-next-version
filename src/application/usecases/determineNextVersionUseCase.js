@@ -144,17 +144,25 @@ class DetermineNextVersionUseCase {
       version: version.toString(),
     });
 
-    if (versions.length === 0) {
-      return null;
+    console.info(`Searching for version ${version.toString()}, found ${versions.length} version(s)`);
+    
+    if (versions.length > 0) {
+      versions.forEach((v, index) => {
+        console.info(`  [${index}] Version: ${v.version.toString()}, State: ${v.state}`);
+      });
     }
 
-    const foundVersion = versions[0];
+    // Find exact version match
+    const exactMatch = versions.find(v => v.version.toString() === version.toString());
+    
+    if (exactMatch) {
+      console.info(`Found exact match: ${exactMatch.version.toString()} in state ${exactMatch.state}`);
+      exactMatch.buildNumber = new BuildNumber(0);
+      return exactMatch;
+    }
 
-    // Note: We don't have app ID here, but it's not needed for finding version
-    // buildNumber will be calculated later if needed
-    foundVersion.buildNumber = new BuildNumber(0);
-
-    return foundVersion;
+    console.info(`No exact match found for version ${version.toString()}`);
+    return null;
   }
 
   /**

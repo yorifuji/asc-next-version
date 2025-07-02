@@ -72,7 +72,7 @@ class VersionCalculator {
       action: VERSION_ACTIONS.SKIP,
       buildNumber: null,
       requiresVersionCreation: false,
-      reason: `Version ${nextVersion.version} is in state ${nextVersion.state} which does not allow new builds`,
+      reason: `Version ${nextVersion.version.toString()} is in state ${nextVersion.state} which does not allow new builds`,
     };
   }
 

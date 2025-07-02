@@ -366,4 +366,101 @@ describe('DetermineNextVersion Integration Test', () => {
       ).rejects.toThrow('No live version found for app');
     });
   });
+
+  describe('APIが複数のバージョンを返すシナリオ', () => {
+    test('部分一致で複数のバージョンが返される場合、正確なマッチングが行われる', async () => {
+      const bundleId = 'com.example.app';
+
+      mockHttpClient.get
+        .mockResolvedValueOnce({
+          // Find app
+          data: {
+            data: [
+              {
+                id: 'app-123',
+                attributes: {
+                  bundleId: bundleId,
+                  name: 'Example App',
+                },
+              },
+            ],
+          },
+        })
+        .mockResolvedValueOnce({
+          // Get live version 1.0.24
+          data: {
+            data: [
+              {
+                id: 'version-124',
+                attributes: {
+                  versionString: '1.0.24',
+                  appStoreState: APP_STORE_STATES.READY_FOR_SALE,
+                },
+              },
+            ],
+          },
+        })
+        .mockResolvedValueOnce({
+          // Get build for live version
+          data: {
+            data: {
+              attributes: {
+                version: '86',
+              },
+            },
+          },
+        })
+        .mockResolvedValueOnce({
+          // Check if 1.0.25 exists - API returns 1.0.24 due to partial matching
+          data: {
+            data: [
+              {
+                id: 'version-124',
+                attributes: {
+                  versionString: '1.0.24',
+                  appStoreState: APP_STORE_STATES.READY_FOR_SALE,
+                },
+              },
+              {
+                id: 'version-102',
+                attributes: {
+                  versionString: '1.0.2',
+                  appStoreState: APP_STORE_STATES.READY_FOR_SALE,
+                },
+              },
+            ],
+          },
+        });
+
+      mockHttpClient.post.mockResolvedValueOnce({
+        // Create new version
+        data: {
+          data: {
+            id: 'version-125',
+            attributes: {
+              versionString: '1.0.25',
+              appStoreState: APP_STORE_STATES.PREPARE_FOR_SUBMISSION,
+            },
+          },
+        },
+      });
+
+      // Execute
+      const result = await useCase.execute({
+        bundleId,
+        platform: PLATFORMS.IOS,
+        createNewVersion: true,
+      });
+
+      // Assert - 1.0.25が存在しないと判断され、新しいバージョンが作成される
+      expect(result).toMatchObject({
+        liveVersion: '1.0.24',
+        liveBuildNumber: 86,
+        version: '1.0.25',
+        buildNumber: 87,
+        action: VERSION_ACTIONS.NEW_VERSION,
+        versionCreated: true,
+      });
+    });
+  });
 });
