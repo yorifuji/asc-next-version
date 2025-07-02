@@ -51,31 +51,18 @@ export class AppVersionService {
 
     // Get build number for live version
     const buildNumber = await this.appStoreClient.getBuildForVersion(liveVersion.id);
+    
+    // READY_FOR_SALE version must have a build
+    if (buildNumber.getValue() === 0) {
+      throw createBusinessLogicError(
+        `READY_FOR_SALE version ${liveVersion.version} has no associated build. This indicates a data inconsistency in App Store Connect.`,
+        ERROR_CODES.DATA_INCONSISTENCY,
+      );
+    }
+    
     liveVersion.buildNumber = buildNumber;
 
     return liveVersion;
-  }
-
-  /**
-   * Get maximum build number using fallback strategy
-   */
-  async getMaxBuildNumber(version: AppStoreVersion, appId: string): Promise<BuildNumber> {
-    // Try to get build number from version directly
-    if (version.buildNumber && version.buildNumber.getValue() > 0) {
-      return version.buildNumber;
-    }
-
-    // Fallback: search builds
-    const builds = await this.appStoreClient.getBuilds(appId, {
-      version: version.version.toString(),
-      limit: 1,
-    });
-
-    if (builds.length > 0 && builds[0]) {
-      return builds[0].version;
-    }
-
-    return new BuildNumber(0);
   }
 
   /**

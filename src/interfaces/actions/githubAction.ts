@@ -27,7 +27,6 @@ interface Result {
   };
   liveVersion: string;
   liveBuildNumber: number;
-  skipReason?: string;
 }
 
 /**
@@ -139,10 +138,6 @@ export class GitHubAction {
 
     if (result.versionCreated) {
       core.info('✅ New version created successfully');
-    }
-
-    if (result.skipReason) {
-      core.warning(`Skip Reason: ${result.skipReason}`);
     }
 
     core.info('========================================');

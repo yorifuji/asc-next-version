@@ -123,26 +123,19 @@ export class AppStoreConnectClient {
   async getBuildForVersion(versionId: string): Promise<BuildNumber> {
     this._ensureValidToken();
 
-    try {
-      const response = await this.client.get<ApiResponse<BuildAttributes>>(
-        `/appStoreVersions/${versionId}/build`,
-      );
+    const response = await this.client.get<ApiResponse<BuildAttributes>>(
+      `/appStoreVersions/${versionId}/build`,
+    );
 
-      const data = response.data.data;
-      const build = Array.isArray(data) ? data[0] : data;
+    const data = response.data.data;
+    const build = Array.isArray(data) ? data[0] : data;
 
-      if (build?.attributes) {
-        return new BuildNumber(build.attributes.version);
-      }
-
+    if (!build?.attributes) {
+      // Return 0 for INCREMENT_BUILD case where version exists but no builds yet
       return new BuildNumber(0);
-    } catch (error) {
-      if ((error as { statusCode?: number }).statusCode === 404) {
-        // No build associated with this version yet
-        return new BuildNumber(0);
-      }
-      throw error;
     }
+
+    return new BuildNumber(build.attributes.version);
   }
 
   /**

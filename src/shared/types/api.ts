@@ -97,12 +97,6 @@ export interface PreReleaseVersionAttributes extends ApiResourceAttributes {
   platform: Platform;
 }
 
-// Response types
-export type AppResponse = ApiResponse<AppAttributes>;
-export type AppStoreVersionResponse = ApiResponse<AppStoreVersionAttributes>;
-export type BuildResponse = ApiResponse<BuildAttributes>;
-export type PreReleaseVersionResponse = ApiResponse<PreReleaseVersionAttributes>;
-
 // Request body types
 export interface CreateAppStoreVersionRequest {
   data: {
@@ -117,20 +111,6 @@ export interface CreateAppStoreVersionRequest {
       };
     };
   };
-}
-
-// HTTP client types
-export interface HttpRequestConfig {
-  params?: Record<string, string | number | boolean>;
-  headers?: Record<string, string>;
-  timeout?: number;
-}
-
-export interface HttpResponse<T = unknown> {
-  data: T;
-  status: number;
-  statusText: string;
-  headers: Record<string, string>;
 }
 
 // Error types with proper typing

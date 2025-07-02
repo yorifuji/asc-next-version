@@ -44,7 +44,6 @@ export const INCREMENTABLE_STATES: readonly AppStoreState[] = [
 export const VERSION_ACTIONS = {
   NEW_VERSION: 'new_version',
   INCREMENT_BUILD: 'increment_build',
-  SKIP: 'skip',
 } as const;
 
 export type VersionAction = (typeof VERSION_ACTIONS)[keyof typeof VERSION_ACTIONS];
@@ -66,8 +65,6 @@ export type Platform = (typeof PLATFORMS)[keyof typeof PLATFORMS];
 export const API_CONFIG = {
   BASE_URL: 'https://api.appstoreconnect.apple.com/v1',
   TIMEOUT: 30000,
-  MAX_RETRIES: 3,
-  RETRY_DELAY: 1000,
 } as const;
 
 /**

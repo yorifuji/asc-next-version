@@ -27,13 +27,11 @@ interface ExecuteResult {
   buildNumber: string;
   action: string;
   versionCreated: boolean;
-  skipReason?: string;
 }
 
 interface ActionResult {
   action: string;
   buildNumber?: BuildNumber;
-  reason?: string;
 }
 
 /**
@@ -60,32 +58,30 @@ export class DetermineNextVersionUseCase {
     const app = await this.appStoreClient.findApp(bundleId);
     console.info(`Found app: ${app.name} (${app.id})`);
 
-    // Step 2: Get the live version
+    // Step 2: Get the live version with build number
     const liveVersion = await this.appVersionService.getLiveVersion(app.id);
-    console.info(`Current live version: ${liveVersion.version}`);
+    console.info(
+      `Current live version: ${liveVersion.version} (Build ${liveVersion.buildNumber.getValue()})`,
+    );
 
-    // Step 3: Get the maximum build number for live version
-    const liveBuildNumber = await this.appVersionService.getMaxBuildNumber(liveVersion, app.id);
-    console.info(`Current live build: ${liveBuildNumber}`);
-
-    // Step 4: Calculate the next version
+    // Step 3: Calculate the next version
     const nextVersion = VersionCalculator.calculateNextVersion(liveVersion.version);
     console.info(`Calculated next version: ${nextVersion}`);
 
-    // Step 5: Check if the next version already exists
+    // Step 4: Check if the next version already exists
     const existingNextVersion = await this.appVersionService.findVersion(
       app.id,
       nextVersion.toString(),
     );
 
-    // Step 6: Determine action based on version state
+    // Step 5: Determine action based on version state
+    // This will throw an error if the version exists but cannot accept new builds
     const actionResult = await this._determineActionWithBuildNumber(
       existingNextVersion,
-      liveBuildNumber,
-      app.id,
+      liveVersion.buildNumber,
     );
 
-    // Step 7: Create new version if needed
+    // Step 6: Create new version if needed
     let versionCreated = false;
     if (actionResult.action === VERSION_ACTIONS.NEW_VERSION && createNewVersion) {
       await this._createNewVersion(app.id, nextVersion, platform);
@@ -93,16 +89,15 @@ export class DetermineNextVersionUseCase {
       console.info(`Created new version: ${nextVersion}`);
     }
 
-    // Step 8: Return results
+    // Step 7: Return results
     return {
       app: app.toObject(),
       liveVersion: liveVersion.version.toString(),
-      liveBuildNumber: liveBuildNumber.getValue(),
-      version: actionResult.action !== VERSION_ACTIONS.SKIP ? nextVersion.toString() : '',
+      liveBuildNumber: liveVersion.buildNumber.getValue(),
+      version: nextVersion.toString(),
       buildNumber: actionResult.buildNumber ? String(actionResult.buildNumber.getValue()) : '',
       action: actionResult.action,
       versionCreated,
-      skipReason: actionResult.reason,
     };
   }
 
@@ -112,25 +107,28 @@ export class DetermineNextVersionUseCase {
   private async _determineActionWithBuildNumber(
     existingVersion: AppStoreVersion | null,
     currentMaxBuild: BuildNumber,
-    appId: string,
   ): Promise<ActionResult> {
     const result = VersionCalculator.determineAction(existingVersion, currentMaxBuild);
 
-    // If incrementing build on existing version, ensure we have the correct max build
+    // If incrementing build on existing version, get its build number
     if (result.action === VERSION_ACTIONS.INCREMENT_BUILD && existingVersion) {
-      const existingMaxBuild = await this.appVersionService.getMaxBuildNumber(
-        existingVersion,
-        appId,
+      // Get the build number for the existing version
+      const existingBuildNumber = await this.appStoreClient.getBuildForVersion(
+        existingVersion.id,
       );
-      if (existingMaxBuild.getValue() > 0) {
-        result.buildNumber = existingMaxBuild.increment();
+      existingVersion.buildNumber = existingBuildNumber;
+      
+      // If the version has builds, use the max + 1
+      if (existingBuildNumber.getValue() > 0) {
+        result.buildNumber = existingBuildNumber.increment();
       }
+      // If no builds exist for this version, use the current max build + 1
+      // This handles the case where a version was created but no builds uploaded yet
     }
 
     return {
       action: result.action,
       buildNumber: result.buildNumber || undefined,
-      reason: result.reason,
     };
   }
 

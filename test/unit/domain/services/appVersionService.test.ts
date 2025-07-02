@@ -75,55 +75,19 @@ describe('AppVersionService', () => {
 
       await expect(service.getLiveVersion('app-id')).rejects.toThrow('No live version found');
     });
-  });
 
-  describe('getMaxBuildNumber', () => {
-    test('returns build number from version if available', async () => {
+    test('throws error when READY_FOR_SALE version has no build', async () => {
       const mockClient = createMockClient();
       const service = new AppVersionService(mockClient);
 
-      const version = createMockVersion('1.0.0', APP_STORE_STATES.READY_FOR_SALE, 42);
+      const mockVersions = [createMockVersion('1.0.0', APP_STORE_STATES.READY_FOR_SALE)];
 
-      const result = await service.getMaxBuildNumber(version, 'app-id');
+      vi.mocked(mockClient.getAppStoreVersions).mockResolvedValue(mockVersions);
+      vi.mocked(mockClient.getBuildForVersion).mockResolvedValue(new BuildNumber(0));
 
-      expect(result.getValue()).toBe(42);
-      expect(mockClient.getBuilds).not.toHaveBeenCalled();
-    });
-
-    test('falls back to search builds when version has no build number', async () => {
-      const mockClient = createMockClient();
-      const service = new AppVersionService(mockClient);
-
-      const version = createMockVersion('1.0.0', APP_STORE_STATES.READY_FOR_SALE);
-      const mockBuild = {
-        id: 'build-1',
-        version: new BuildNumber(25),
-        uploadedDate: '2023-01-01',
-        processingState: 'PROCESSED',
-      };
-
-      vi.mocked(mockClient.getBuilds).mockResolvedValue([mockBuild]);
-
-      const result = await service.getMaxBuildNumber(version, 'app-id');
-
-      expect(result.getValue()).toBe(25);
-      expect(mockClient.getBuilds).toHaveBeenCalledWith('app-id', {
-        version: '1.0.0',
-        limit: 1,
-      });
-    });
-
-    test('returns 0 when no builds found', async () => {
-      const mockClient = createMockClient();
-      const service = new AppVersionService(mockClient);
-
-      const version = createMockVersion('1.0.0', APP_STORE_STATES.READY_FOR_SALE);
-
-      vi.mocked(mockClient.getBuilds).mockResolvedValue([]);
-
-      const result = await service.getMaxBuildNumber(version, 'app-id');
-
-      expect(result.getValue()).toBe(0);
+      await expect(service.getLiveVersion('app-id')).rejects.toThrow(
+        'READY_FOR_SALE version 1.0.0 has no associated build',
+      );
     });
   });
 

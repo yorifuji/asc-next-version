@@ -91,7 +91,7 @@ describe('VersionCalculator', () => {
       expect(result.buildNumber?.getValue()).toBe(11);
     });
 
-    test('returns SKIP for non-editable version', () => {
+    test('throws error for non-editable version (READY_FOR_SALE)', () => {
       const version = new Version('1.0.0');
       const appStoreVersion = new AppStoreVersion({
         id: 'test-id',
@@ -103,12 +103,26 @@ describe('VersionCalculator', () => {
       });
       const currentMaxBuild = new BuildNumber(10);
 
-      const result = VersionCalculator.determineAction(appStoreVersion, currentMaxBuild);
+      expect(() => VersionCalculator.determineAction(appStoreVersion, currentMaxBuild)).toThrow(
+        'Cannot add builds to version 1.0.0: This version is already live on the App Store',
+      );
+    });
 
-      expect(result.action).toBe(VERSION_ACTIONS.SKIP);
-      expect(result.buildNumber).toBeNull();
-      expect(result.requiresVersionCreation).toBe(false);
-      expect(result.reason).toContain('READY_FOR_SALE');
+    test('throws error for non-editable version (PENDING_CONTRACT)', () => {
+      const version = new Version('1.0.0');
+      const appStoreVersion = new AppStoreVersion({
+        id: 'test-id',
+        version,
+        buildNumber: 0,
+        state: APP_STORE_STATES.PENDING_CONTRACT,
+        platform: 'IOS',
+        createdDate: '2023-01-01',
+      });
+      const currentMaxBuild = new BuildNumber(10);
+
+      expect(() => VersionCalculator.determineAction(appStoreVersion, currentMaxBuild)).toThrow(
+        'Cannot add builds to version 1.0.0: This version is pending contract agreement',
+      );
     });
   });
 

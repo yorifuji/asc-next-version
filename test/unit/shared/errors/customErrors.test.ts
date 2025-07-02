@@ -29,7 +29,7 @@ describe('AppStoreConnectError', () => {
   });
 
   test('includes stack trace', () => {
-    const error = new AppStoreConnectError('Test error', ERROR_CODES.BUSINESS_LOGIC_ERROR);
+    const error = new AppStoreConnectError('Test error', ERROR_CODES.NO_LIVE_VERSION);
 
     expect(error.stack).toBeDefined();
     expect(error.stack).toContain('AppStoreConnectError');
@@ -91,29 +91,30 @@ describe('createBusinessLogicError', () => {
 
   test('creates business logic error without reason', () => {
     const error = createBusinessLogicError(
-      'Version already exists',
-      ERROR_CODES.VERSION_ALREADY_EXISTS,
+      'Data inconsistency detected',
+      ERROR_CODES.DATA_INCONSISTENCY,
     );
 
-    expect(error.message).toBe('Version already exists');
-    expect(error.code).toBe(ERROR_CODES.VERSION_ALREADY_EXISTS);
+    expect(error.message).toBe('Data inconsistency detected');
+    expect(error.code).toBe(ERROR_CODES.DATA_INCONSISTENCY);
     expect(error.details).toEqual({ reason: undefined });
   });
 });
 
 describe('ERROR_CODES', () => {
   test('contains all expected error codes', () => {
+    // Validation errors
     expect(ERROR_CODES.VALIDATION_ERROR).toBe('VALIDATION_ERROR');
-    expect(ERROR_CODES.INVALID_VERSION_FORMAT).toBe('INVALID_VERSION_FORMAT');
-    expect(ERROR_CODES.INVALID_BUILD_NUMBER).toBe('INVALID_BUILD_NUMBER');
+    
+    // API errors
     expect(ERROR_CODES.API_ERROR).toBe('API_ERROR');
-    expect(ERROR_CODES.NETWORK_ERROR).toBe('NETWORK_ERROR');
-    expect(ERROR_CODES.NOT_FOUND).toBe('NOT_FOUND');
-    expect(ERROR_CODES.BUSINESS_LOGIC_ERROR).toBe('BUSINESS_LOGIC_ERROR');
+    
+    // Business logic errors
     expect(ERROR_CODES.NO_LIVE_VERSION).toBe('NO_LIVE_VERSION');
-    expect(ERROR_CODES.VERSION_ALREADY_EXISTS).toBe('VERSION_ALREADY_EXISTS');
+    expect(ERROR_CODES.DATA_INCONSISTENCY).toBe('DATA_INCONSISTENCY');
+    expect(ERROR_CODES.VERSION_NOT_INCREMENTABLE).toBe('VERSION_NOT_INCREMENTABLE');
+    
+    // Authentication errors
     expect(ERROR_CODES.AUTHENTICATION_ERROR).toBe('AUTHENTICATION_ERROR');
-    expect(ERROR_CODES.INVALID_CREDENTIALS).toBe('INVALID_CREDENTIALS');
-    expect(ERROR_CODES.TOKEN_EXPIRED).toBe('TOKEN_EXPIRED');
   });
 });

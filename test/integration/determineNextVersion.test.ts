@@ -138,7 +138,7 @@ describe('DetermineNextVersion Integration Test', () => {
   });
 
   describe('既存バージョンのビルド番号をインクリメントするシナリオ', () => {
-    test('1.0.1が既に存在し、PREPARE_FOR_SUBMISSION状態の場合', async () => {
+    test('1.0.1が既に存在し、PREPARE_FOR_SUBMISSION状態でビルドがある場合', async () => {
       const bundleId = 'com.example.app';
 
       mockHttpClient.get
@@ -195,18 +195,13 @@ describe('DetermineNextVersion Integration Test', () => {
           },
         })
         .mockResolvedValueOnce({
-          // Get builds for 1.0.1
+          // Get build for existing version 1.0.1
           data: {
-            data: [
-              {
-                id: 'build-107',
-                attributes: {
-                  version: '7',
-                  uploadedDate: '2024-01-03',
-                  processingState: 'VALID',
-                },
+            data: {
+              attributes: {
+                version: '7',
               },
-            ],
+            },
           },
         });
 
@@ -225,9 +220,88 @@ describe('DetermineNextVersion Integration Test', () => {
         versionCreated: false,
       });
     });
+
+    test('1.0.1が既に存在するがビルドがまだない場合', async () => {
+      const bundleId = 'com.example.app';
+
+      mockHttpClient.get
+        .mockResolvedValueOnce({
+          // Find app
+          data: {
+            data: [
+              {
+                id: 'app-123',
+                attributes: {
+                  bundleId,
+                  name: 'Example App',
+                },
+              },
+            ],
+          },
+        })
+        .mockResolvedValueOnce({
+          // Get live version
+          data: {
+            data: [
+              {
+                id: 'version-100',
+                attributes: {
+                  versionString: '1.0.0',
+                  appStoreState: APP_STORE_STATES.READY_FOR_SALE,
+                },
+              },
+            ],
+          },
+        })
+        .mockResolvedValueOnce({
+          // Get build for live version
+          data: {
+            data: {
+              attributes: {
+                version: '5',
+              },
+            },
+          },
+        })
+        .mockResolvedValueOnce({
+          // Check if 1.0.1 exists
+          data: {
+            data: [
+              {
+                id: 'version-101',
+                attributes: {
+                  versionString: '1.0.1',
+                  appStoreState: APP_STORE_STATES.PREPARE_FOR_SUBMISSION,
+                },
+              },
+            ],
+          },
+        })
+        .mockResolvedValueOnce({
+          // Get build for existing version 1.0.1 - no build found
+          data: {
+            data: null,
+          },
+        });
+
+      // Execute
+      const result = await useCase.execute({
+        bundleId,
+        platform: PLATFORMS.IOS,
+        createNewVersion: false,
+      });
+
+      // Assert - should use live version build + 1
+      expect(result).toMatchObject({
+        version: '1.0.1',
+        buildNumber: '6',
+        action: VERSION_ACTIONS.INCREMENT_BUILD,
+        versionCreated: false,
+      });
+    });
   });
 
-  describe('スキップするシナリオ', () => {
+  describe('エラーになるシナリオ（以前はスキップ）', () => {
     test('1.0.1が既にREADY_FOR_SALE状態の場合', async () => {
       const bundleId = 'com.example.app';
 
@@ -283,33 +357,83 @@ describe('DetermineNextVersion Integration Test', () => {
               },
             ],
           },
+        });
+
+      // Execute and expect error
+      await expect(
+        useCase.execute({
+          bundleId,
+          platform: PLATFORMS.IOS,
+          createNewVersion: false,
+        }),
+      ).rejects.toThrow('Cannot add builds to version 1.0.1: This version is already live on the App Store');
+    });
+
+    test('1.0.1がPENDING_CONTRACT状態の場合', async () => {
+      const bundleId = 'com.example.app';
+
+      mockHttpClient.get
+        .mockResolvedValueOnce({
+          // Find app
+          data: {
+            data: [
+              {
+                id: 'app-123',
+                attributes: {
+                  bundleId,
+                  name: 'Example App',
+                },
+              },
+            ],
+          },
         })
         .mockResolvedValueOnce({
-          // Get build for 1.0.1
+          // Get live version
+          data: {
+            data: [
+              {
+                id: 'version-100',
+                attributes: {
+                  versionString: '1.0.0',
+                  appStoreState: APP_STORE_STATES.READY_FOR_SALE,
+                },
+              },
+            ],
+          },
+        })
+        .mockResolvedValueOnce({
+          // Get build for live version
           data: {
             data: {
               attributes: {
-                version: '8',
+                version: '5',
               },
             },
           },
+        })
+        .mockResolvedValueOnce({
+          // Check if 1.0.1 exists - PENDING_CONTRACT
+          data: {
+            data: [
+              {
+                id: 'version-101',
+                attributes: {
+                  versionString: '1.0.1',
+                  appStoreState: APP_STORE_STATES.PENDING_CONTRACT,
+                },
+              },
+            ],
+          },
         });
 
-      // Execute
-      const result = await useCase.execute({
-        bundleId,
-        platform: PLATFORMS.IOS,
-        createNewVersion: false,
-      });
-
-      // Assert
-      expect(result).toMatchObject({
-        version: '',
-        buildNumber: '',
-        action: VERSION_ACTIONS.SKIP,
-        versionCreated: false,
-        skipReason: expect.stringContaining('READY_FOR_SALE'),
-      });
+      // Execute and expect error
+      await expect(
+        useCase.execute({
+          bundleId,
+          platform: PLATFORMS.IOS,
+          createNewVersion: false,
+        }),
+      ).rejects.toThrow('Cannot add builds to version 1.0.1: This version is pending contract agreement');
     });
   });
 
@@ -359,6 +483,51 @@ describe('DetermineNextVersion Integration Test', () => {
           createNewVersion: false,
         }),
       ).rejects.toThrow('No live version found for app');
+    });
+
+    test('READY_FOR_SALEバージョンにビルドが関連付けられていない場合', async () => {
+      mockHttpClient.get
+        .mockResolvedValueOnce({
+          // Find app
+          data: {
+            data: [
+              {
+                id: 'app-123',
+                attributes: {
+                  bundleId: 'com.example.app',
+                },
+              },
+            ],
+          },
+        })
+        .mockResolvedValueOnce({
+          // Get live version
+          data: {
+            data: [
+              {
+                id: 'version-100',
+                attributes: {
+                  versionString: '1.0.0',
+                  appStoreState: APP_STORE_STATES.READY_FOR_SALE,
+                },
+              },
+            ],
+          },
+        })
+        .mockResolvedValueOnce({
+          // Get build for version - no build found
+          data: {
+            data: null,
+          },
+        });
+
+      await expect(
+        useCase.execute({
+          bundleId: 'com.example.app',
+          platform: PLATFORMS.IOS,
+          createNewVersion: false,
+        }),
+      ).rejects.toThrow('READY_FOR_SALE version 1.0.0 has no associated build');
     });
   });
 
