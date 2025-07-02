@@ -44,7 +44,10 @@ export class AppVersionService {
 
     const liveVersion = readyForSaleVersions[0];
     if (!liveVersion) {
-      throw createBusinessLogicError('No live version found after filtering', ERROR_CODES.NO_LIVE_VERSION);
+      throw createBusinessLogicError(
+        'No live version found after filtering',
+        ERROR_CODES.NO_LIVE_VERSION,
+      );
     }
 
     // Get build number for live version
@@ -84,9 +87,7 @@ export class AppVersionService {
       version,
     });
 
-    console.info(
-      `Searching for version ${version}, found ${versions.length} version(s)`,
-    );
+    console.info(`Searching for version ${version}, found ${versions.length} version(s)`);
 
     // Find exact version match
     const exactMatch = versions.find((v) => v.version.toString() === version);

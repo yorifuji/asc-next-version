@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { JwtGenerator } from '../../src/infrastructure/auth/jwtGenerator.js';
 import { AppStoreConnectClient } from '../../src/infrastructure/api/appStoreConnectClient.js';
-import { DetermineNextVersionUseCase } from '../../src/application/usecases/determineNextVersionUseCase.js';
+import { DetermineNextVersionUseCase } from '../../src/usecases/determineNextVersionUseCase.js';
 import { APP_STORE_STATES, PLATFORMS, VERSION_ACTIONS } from '../../src/shared/constants/index.js';
 import axios from 'axios';
 import jwt from 'jsonwebtoken';

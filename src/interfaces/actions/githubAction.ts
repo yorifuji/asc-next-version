@@ -1,7 +1,7 @@
 import * as core from '@actions/core';
 import { JwtGenerator } from '../../infrastructure/auth/jwtGenerator.js';
 import { AppStoreConnectClient } from '../../infrastructure/api/appStoreConnectClient.js';
-import { DetermineNextVersionUseCase } from '../../application/usecases/determineNextVersionUseCase.js';
+import { DetermineNextVersionUseCase } from '../../usecases/determineNextVersionUseCase.js';
 import { PLATFORMS } from '../../shared/constants/index.js';
 import type { Platform } from '../../shared/constants/index.js';
 import { createValidationError } from '../../shared/errors/customErrors.js';

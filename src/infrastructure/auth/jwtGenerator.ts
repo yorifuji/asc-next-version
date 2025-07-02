@@ -1,6 +1,10 @@
 import jwt from 'jsonwebtoken';
 import { JWT_CONFIG } from '../../shared/constants/index.js';
-import { AppStoreConnectError, createValidationError, ERROR_CODES } from '../../shared/errors/customErrors.js';
+import {
+  AppStoreConnectError,
+  createValidationError,
+  ERROR_CODES,
+} from '../../shared/errors/customErrors.js';
 import type { ErrorWithDetails } from '../../shared/types/api.js';
 
 /**

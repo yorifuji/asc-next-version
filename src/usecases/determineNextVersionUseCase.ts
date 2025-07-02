@@ -1,11 +1,11 @@
-import type { BuildNumber } from '../../domain/valueObjects/buildNumber.js';
-import type { Version } from '../../domain/valueObjects/version.js';
-import { VersionCalculator } from '../../domain/services/versionCalculator.js';
-import { AppVersionService } from '../../domain/services/appVersionService.js';
-import { VERSION_ACTIONS } from '../../shared/constants/index.js';
-import type { Platform } from '../../shared/constants/index.js';
-import type { AppStoreConnectClient } from '../../infrastructure/api/appStoreConnectClient.js';
-import type { AppStoreVersion } from '../../domain/entities/appStoreVersion.js';
+import type { BuildNumber } from '../domain/valueObjects/buildNumber.js';
+import type { Version } from '../domain/valueObjects/version.js';
+import { VersionCalculator } from '../domain/services/versionCalculator.js';
+import { AppVersionService } from '../domain/services/appVersionService.js';
+import { VERSION_ACTIONS } from '../shared/constants/index.js';
+import type { Platform } from '../shared/constants/index.js';
+import type { AppStoreConnectClient } from '../infrastructure/api/appStoreConnectClient.js';
+import type { AppStoreVersion } from '../domain/entities/appStoreVersion.js';
 
 interface ExecuteParams {
   bundleId: string;
@@ -73,7 +73,10 @@ export class DetermineNextVersionUseCase {
     console.info(`Calculated next version: ${nextVersion}`);
 
     // Step 5: Check if the next version already exists
-    const existingNextVersion = await this.appVersionService.findVersion(app.id, nextVersion.toString());
+    const existingNextVersion = await this.appVersionService.findVersion(
+      app.id,
+      nextVersion.toString(),
+    );
 
     // Step 6: Determine action based on version state
     const actionResult = await this._determineActionWithBuildNumber(
@@ -103,7 +106,6 @@ export class DetermineNextVersionUseCase {
     };
   }
 
-
   /**
    * Determine action with proper build number calculation
    */
@@ -116,7 +118,10 @@ export class DetermineNextVersionUseCase {
 
     // If incrementing build on existing version, ensure we have the correct max build
     if (result.action === VERSION_ACTIONS.INCREMENT_BUILD && existingVersion) {
-      const existingMaxBuild = await this.appVersionService.getMaxBuildNumber(existingVersion, appId);
+      const existingMaxBuild = await this.appVersionService.getMaxBuildNumber(
+        existingVersion,
+        appId,
+      );
       if (existingMaxBuild.getValue() > 0) {
         result.buildNumber = existingMaxBuild.increment();
       }
