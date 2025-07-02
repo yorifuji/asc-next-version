@@ -108,23 +108,16 @@ export class DetermineNextVersionUseCase {
     existingVersion: AppStoreVersion | null,
     currentMaxBuild: BuildNumber,
   ): Promise<ActionResult> {
-    const result = VersionCalculator.determineAction(existingVersion, currentMaxBuild);
-
-    // If incrementing build on existing version, get its build number
-    if (result.action === VERSION_ACTIONS.INCREMENT_BUILD && existingVersion) {
-      // Get the build number for the existing version
+    // If version exists, get its build number first
+    if (existingVersion) {
       const existingBuildNumber = await this.appStoreClient.getBuildForVersion(
         existingVersion.id,
       );
       existingVersion.buildNumber = existingBuildNumber;
-      
-      // If the version has builds, use the max + 1
-      if (existingBuildNumber.getValue() > 0) {
-        result.buildNumber = existingBuildNumber.increment();
-      }
-      // If no builds exist for this version, use the current max build + 1
-      // This handles the case where a version was created but no builds uploaded yet
     }
+
+    // Now determine action with the correct build number information
+    const result = VersionCalculator.determineAction(existingVersion, currentMaxBuild);
 
     return {
       action: result.action,

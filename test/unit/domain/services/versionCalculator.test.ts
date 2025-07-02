@@ -69,7 +69,7 @@ describe('VersionCalculator', () => {
       const result = VersionCalculator.determineAction(appStoreVersion, currentMaxBuild);
 
       expect(result.action).toBe(VERSION_ACTIONS.INCREMENT_BUILD);
-      expect(result.buildNumber?.getValue()).toBe(6);
+      expect(result.buildNumber?.getValue()).toBe(11); // Uses currentMaxBuild + 1 as it's higher than 6
       expect(result.requiresVersionCreation).toBe(false);
     });
 
@@ -89,6 +89,42 @@ describe('VersionCalculator', () => {
 
       expect(result.action).toBe(VERSION_ACTIONS.INCREMENT_BUILD);
       expect(result.buildNumber?.getValue()).toBe(11);
+    });
+
+    test('returns INCREMENT_BUILD with correct build number when existing version has builds', () => {
+      const version = new Version('1.0.0');
+      const appStoreVersion = new AppStoreVersion({
+        id: 'test-id',
+        version,
+        buildNumber: 15,
+        state: APP_STORE_STATES.PREPARE_FOR_SUBMISSION,
+        platform: 'IOS',
+        createdDate: '2023-01-01',
+      });
+      const currentMaxBuild = new BuildNumber(10);
+
+      const result = VersionCalculator.determineAction(appStoreVersion, currentMaxBuild);
+
+      expect(result.action).toBe(VERSION_ACTIONS.INCREMENT_BUILD);
+      expect(result.buildNumber?.getValue()).toBe(16); // Should use existing version's build + 1
+    });
+
+    test('uses higher build number to avoid conflicts', () => {
+      const version = new Version('1.0.0');
+      const appStoreVersion = new AppStoreVersion({
+        id: 'test-id',
+        version,
+        buildNumber: 8,
+        state: APP_STORE_STATES.PREPARE_FOR_SUBMISSION,
+        platform: 'IOS',
+        createdDate: '2023-01-01',
+      });
+      const currentMaxBuild = new BuildNumber(90);
+
+      const result = VersionCalculator.determineAction(appStoreVersion, currentMaxBuild);
+
+      expect(result.action).toBe(VERSION_ACTIONS.INCREMENT_BUILD);
+      expect(result.buildNumber?.getValue()).toBe(91); // Should use currentMaxBuild + 1 because it's higher
     });
 
     test('throws error for non-editable version (READY_FOR_SALE)', () => {

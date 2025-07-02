@@ -357,6 +357,16 @@ describe('DetermineNextVersion Integration Test', () => {
               },
             ],
           },
+        })
+        .mockResolvedValueOnce({
+          // Get build for version 101
+          data: {
+            data: {
+              attributes: {
+                version: '0',
+              },
+            },
+          },
         });
 
       // Execute and expect error
@@ -423,6 +433,16 @@ describe('DetermineNextVersion Integration Test', () => {
                 },
               },
             ],
+          },
+        })
+        .mockResolvedValueOnce({
+          // Get build for version 101
+          data: {
+            data: {
+              attributes: {
+                version: '0',
+              },
+            },
           },
         });
 

@@ -72,10 +72,22 @@ export class VersionCalculator {
 
     if (nextVersion.canIncrementBuild()) {
       // Version exists and can be incremented
-      const nextBuild =
-        nextVersion.buildNumber.getValue() > 0
-          ? nextVersion.getNextBuildNumber()
-          : currentMaxBuild.increment();
+      // Use the maximum of the existing version's build number and the current max build
+      let nextBuild: BuildNumber;
+      
+      if (nextVersion.buildNumber.getValue() > 0) {
+        // If the existing version has builds, check which is higher
+        const existingVersionNextBuild = nextVersion.getNextBuildNumber();
+        const currentMaxNextBuild = currentMaxBuild.increment();
+        
+        // Use the higher build number to avoid conflicts
+        nextBuild = existingVersionNextBuild.getValue() > currentMaxNextBuild.getValue() 
+          ? existingVersionNextBuild 
+          : currentMaxNextBuild;
+      } else {
+        // No builds for this version yet, use current max + 1
+        nextBuild = currentMaxBuild.increment();
+      }
 
       return {
         action: VERSION_ACTIONS.INCREMENT_BUILD,
