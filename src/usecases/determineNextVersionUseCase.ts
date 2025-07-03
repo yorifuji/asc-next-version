@@ -82,8 +82,8 @@ export class DetermineNextVersionUseCase {
     console.info('\n[Step 4.5] Analyzing recent builds...');
     const allBuilds = await this.appStoreClient.getBuilds(app.id);
     const buildNumbers = allBuilds.map((b) => b.version.getValue()).sort((a, b) => b - a);
-    console.info(`  └─ Total builds found: ${allBuilds.length}`);
-    console.info(`  └─ Recent builds: [${buildNumbers.join(', ')}]`);
+    console.info(`  └─ Fetched ${allBuilds.length} most recent builds`);
+    console.info(`  └─ Build numbers: [${buildNumbers.join(', ')}]`);
 
     const maxUploadedBuild = allBuilds.reduce((max, build) => {
       return build.version.getValue() > max.getValue() ? build.version : max;
