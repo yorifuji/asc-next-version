@@ -133,4 +133,54 @@ describe('AppVersionService', () => {
       expect(result).toBeNull();
     });
   });
+
+  describe('getMaxBuildNumber', () => {
+    test('returns maximum build number from all builds', async () => {
+      const mockClient = createMockClient();
+      const service = new AppVersionService(mockClient);
+
+      const mockBuilds = [
+        { version: new BuildNumber(10) },
+        { version: new BuildNumber(15) },
+        { version: new BuildNumber(12) },
+      ];
+
+      vi.mocked(mockClient.getBuilds).mockResolvedValue(mockBuilds);
+
+      const fallback = new BuildNumber(5);
+      const result = await service.getMaxBuildNumber('app-id', fallback);
+
+      expect(result.getValue()).toBe(15);
+    });
+
+    test('returns fallback when no builds exist', async () => {
+      const mockClient = createMockClient();
+      const service = new AppVersionService(mockClient);
+
+      vi.mocked(mockClient.getBuilds).mockResolvedValue([]);
+
+      const fallback = new BuildNumber(10);
+      const result = await service.getMaxBuildNumber('app-id', fallback);
+
+      expect(result.getValue()).toBe(10);
+    });
+
+    test('returns fallback when all builds are lower', async () => {
+      const mockClient = createMockClient();
+      const service = new AppVersionService(mockClient);
+
+      const mockBuilds = [
+        { version: new BuildNumber(5) },
+        { version: new BuildNumber(3) },
+        { version: new BuildNumber(7) },
+      ];
+
+      vi.mocked(mockClient.getBuilds).mockResolvedValue(mockBuilds);
+
+      const fallback = new BuildNumber(10);
+      const result = await service.getMaxBuildNumber('app-id', fallback);
+
+      expect(result.getValue()).toBe(10);
+    });
+  });
 });

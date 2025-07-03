@@ -78,17 +78,12 @@ export class DetermineNextVersionUseCase {
       nextVersion.toString(),
     );
 
-    // Step 5: Get recent builds to find the maximum build number
+    // Step 5: Get the maximum build number from all uploaded builds
     console.info('\n[Step 5] Analyzing recent builds...');
-    const allBuilds = await this.appStoreClient.getBuilds(app.id);
-    const buildNumbers = allBuilds.map((b) => b.version.getValue()).sort((a, b) => b - a);
-    console.info(`  └─ Fetched ${allBuilds.length} most recent builds`);
-    console.info(`  └─ Build numbers: [${buildNumbers.join(', ')}]`);
-
-    const maxUploadedBuild = allBuilds.reduce((max, build) => {
-      return build.version.getValue() > max.getValue() ? build.version : max;
-    }, liveVersion.buildNumber);
-
+    const maxUploadedBuild = await this.appVersionService.getMaxBuildNumber(
+      app.id,
+      liveVersion.buildNumber,
+    );
     console.info(`  └─ Maximum build number: ${maxUploadedBuild.getValue()}`);
 
     // Step 6: Determine action based on version state

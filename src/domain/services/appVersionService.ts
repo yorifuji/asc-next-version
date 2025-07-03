@@ -83,4 +83,21 @@ export class AppVersionService {
 
     return null;
   }
+
+  /**
+   * Get the maximum build number from all uploaded builds
+   */
+  async getMaxBuildNumber(appId: string, fallbackBuildNumber: BuildNumber): Promise<BuildNumber> {
+    const allBuilds = await this.appStoreClient.getBuilds(appId);
+    
+    if (allBuilds.length === 0) {
+      return fallbackBuildNumber;
+    }
+
+    const maxUploadedBuild = allBuilds.reduce((max, build) => {
+      return build.version.getValue() > max.getValue() ? build.version : max;
+    }, fallbackBuildNumber);
+
+    return maxUploadedBuild;
+  }
 }
