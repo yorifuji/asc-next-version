@@ -51,7 +51,7 @@ export class AppVersionService {
 
     // Get build number for live version
     const buildNumber = await this.appStoreClient.getBuildForVersion(liveVersion.id);
-    
+
     // READY_FOR_SALE version must have a build
     if (buildNumber.getValue() === 0) {
       throw createBusinessLogicError(
@@ -59,7 +59,7 @@ export class AppVersionService {
         ERROR_CODES.DATA_INCONSISTENCY,
       );
     }
-    
+
     liveVersion.buildNumber = buildNumber;
 
     return liveVersion;

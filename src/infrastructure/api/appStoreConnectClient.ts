@@ -127,26 +127,20 @@ export class AppStoreConnectClient {
       `/appStoreVersions/${versionId}/build`,
     );
 
-    console.info(`[DEBUG] API Response for version ${versionId}:`, JSON.stringify(response.data, null, 2));
-    
     const data = response.data.data;
     const build = Array.isArray(data) ? data[0] : data;
 
     if (!build?.attributes) {
-      console.info(`[DEBUG] No build found for version ${versionId}, returning 0`);
       // Return 0 for INCREMENT_BUILD case where version exists but no builds yet
       return new BuildNumber(0);
     }
 
     const versionString = build.attributes.version;
-    console.info(`[DEBUG] Raw build version from API: "${versionString}"`);
     const versionNumber = parseInt(versionString, 10);
-    
+
     if (isNaN(versionNumber)) {
-      throw createApiError(`Invalid build version: ${versionString}`, 400, null);  
+      throw createApiError(`Invalid build version: ${versionString}`, 400, null);
     }
-    
-    console.info(`[DEBUG] Parsed build number: ${versionNumber}`);
     const buildNumber = new BuildNumber(versionNumber);
     return buildNumber;
   }

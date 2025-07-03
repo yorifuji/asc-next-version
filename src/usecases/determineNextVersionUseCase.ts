@@ -79,8 +79,6 @@ export class DetermineNextVersionUseCase {
     const maxUploadedBuild = allBuilds.reduce((max, build) => {
       return build.version.getValue() > max.getValue() ? build.version : max;
     }, liveVersion.buildNumber);
-    
-    console.info(`[DEBUG] Max uploaded build number: ${maxUploadedBuild.getValue()}`);
 
     // Step 5: Determine action based on version state
     // This will throw an error if the version exists but cannot accept new builds
@@ -118,9 +116,7 @@ export class DetermineNextVersionUseCase {
   ): Promise<ActionResult> {
     // If version exists, get its build number first
     if (existingVersion) {
-      const existingBuildNumber = await this.appStoreClient.getBuildForVersion(
-        existingVersion.id,
-      );
+      const existingBuildNumber = await this.appStoreClient.getBuildForVersion(existingVersion.id);
       existingVersion.buildNumber = existingBuildNumber;
     }
 

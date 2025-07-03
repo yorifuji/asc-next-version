@@ -105,15 +105,15 @@ describe('ERROR_CODES', () => {
   test('contains all expected error codes', () => {
     // Validation errors
     expect(ERROR_CODES.VALIDATION_ERROR).toBe('VALIDATION_ERROR');
-    
+
     // API errors
     expect(ERROR_CODES.API_ERROR).toBe('API_ERROR');
-    
+
     // Business logic errors
     expect(ERROR_CODES.NO_LIVE_VERSION).toBe('NO_LIVE_VERSION');
     expect(ERROR_CODES.DATA_INCONSISTENCY).toBe('DATA_INCONSISTENCY');
     expect(ERROR_CODES.VERSION_NOT_INCREMENTABLE).toBe('VERSION_NOT_INCREMENTABLE');
-    
+
     // Authentication errors
     expect(ERROR_CODES.AUTHENTICATION_ERROR).toBe('AUTHENTICATION_ERROR');
   });

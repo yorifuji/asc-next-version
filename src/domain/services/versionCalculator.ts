@@ -74,23 +74,17 @@ export class VersionCalculator {
       // Version exists and can be incremented
       // Use the maximum of the existing version's build number and the current max build
       let nextBuild: BuildNumber;
-      
-      console.info(`[DEBUG] Existing version build: ${nextVersion.buildNumber.getValue()}, Current max build: ${currentMaxBuild.getValue()}`);
-      
+
       if (nextVersion.buildNumber.getValue() > 0) {
         // If the existing version has builds, check which is higher
         const existingVersionNextBuild = nextVersion.getNextBuildNumber();
         const currentMaxNextBuild = currentMaxBuild.increment();
-        
-        
-        console.info(`[DEBUG] Existing version next: ${existingVersionNextBuild.getValue()}, Current max next: ${currentMaxNextBuild.getValue()}`);
-        
+
         // Use the higher build number to avoid conflicts
-        nextBuild = existingVersionNextBuild.getValue() > currentMaxNextBuild.getValue() 
-          ? existingVersionNextBuild 
-          : currentMaxNextBuild;
-          
-        console.info(`[DEBUG] Selected build number: ${nextBuild.getValue()}`);
+        nextBuild =
+          existingVersionNextBuild.getValue() > currentMaxNextBuild.getValue()
+            ? existingVersionNextBuild
+            : currentMaxNextBuild;
       } else {
         // No builds for this version yet, use current max + 1
         nextBuild = currentMaxBuild.increment();
@@ -105,17 +99,24 @@ export class VersionCalculator {
 
     // Version exists but cannot be incremented - throw error with detailed message
     const stateMessages: Record<string, string> = {
-      READY_FOR_SALE: 'This version is already live on the App Store. Create a new version (e.g., increment to next patch version).',
-      ACCEPTED: 'This version has been accepted by Apple and is waiting to be released. Either release it first or create a new version.',
-      PROCESSING_FOR_APP_STORE: 'This version is being processed by Apple. Wait for processing to complete or create a new version.',
-      PENDING_CONTRACT: 'This version is pending contract agreement. Resolve contract issues in App Store Connect or create a new version.',
-      WAITING_FOR_EXPORT_COMPLIANCE: 'This version is waiting for export compliance. Complete export compliance in App Store Connect or create a new version.',
-      REPLACED_WITH_NEW_VERSION: 'This version has been replaced by a newer version. Use a higher version number.',
+      READY_FOR_SALE:
+        'This version is already live on the App Store. Create a new version (e.g., increment to next patch version).',
+      ACCEPTED:
+        'This version has been accepted by Apple and is waiting to be released. Either release it first or create a new version.',
+      PROCESSING_FOR_APP_STORE:
+        'This version is being processed by Apple. Wait for processing to complete or create a new version.',
+      PENDING_CONTRACT:
+        'This version is pending contract agreement. Resolve contract issues in App Store Connect or create a new version.',
+      WAITING_FOR_EXPORT_COMPLIANCE:
+        'This version is waiting for export compliance. Complete export compliance in App Store Connect or create a new version.',
+      REPLACED_WITH_NEW_VERSION:
+        'This version has been replaced by a newer version. Use a higher version number.',
       REMOVED_FROM_SALE: 'This version has been removed from sale. Create a new version.',
       NOT_APPLICABLE_FOR_REVIEW: 'This version is not applicable for review. Create a new version.',
     };
 
-    const message = stateMessages[nextVersion.state] || 
+    const message =
+      stateMessages[nextVersion.state] ||
       `This version is in state ${nextVersion.state} which does not allow new builds.`;
 
     throw createBusinessLogicError(

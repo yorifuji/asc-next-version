@@ -97,6 +97,21 @@ describe('DetermineNextVersion Integration Test', () => {
           data: {
             data: [],
           },
+        })
+        .mockResolvedValueOnce({
+          // Get all builds
+          data: {
+            data: [
+              {
+                id: 'build-5',
+                attributes: {
+                  version: '5',
+                  uploadedDate: '2023-01-01',
+                  processingState: 'VALID',
+                },
+              },
+            ],
+          },
         });
 
       mockHttpClient.post.mockResolvedValueOnce({
@@ -195,6 +210,29 @@ describe('DetermineNextVersion Integration Test', () => {
           },
         })
         .mockResolvedValueOnce({
+          // Get all builds
+          data: {
+            data: [
+              {
+                id: 'build-7',
+                attributes: {
+                  version: '7',
+                  uploadedDate: '2023-01-02',
+                  processingState: 'VALID',
+                },
+              },
+              {
+                id: 'build-5',
+                attributes: {
+                  version: '5',
+                  uploadedDate: '2023-01-01',
+                  processingState: 'VALID',
+                },
+              },
+            ],
+          },
+        })
+        .mockResolvedValueOnce({
           // Get build for existing version 1.0.1
           data: {
             data: {
@@ -272,6 +310,21 @@ describe('DetermineNextVersion Integration Test', () => {
                 attributes: {
                   versionString: '1.0.1',
                   appStoreState: APP_STORE_STATES.PREPARE_FOR_SUBMISSION,
+                },
+              },
+            ],
+          },
+        })
+        .mockResolvedValueOnce({
+          // Get all builds
+          data: {
+            data: [
+              {
+                id: 'build-5',
+                attributes: {
+                  version: '5',
+                  uploadedDate: '2023-01-01',
+                  processingState: 'VALID',
                 },
               },
             ],
@@ -359,6 +412,21 @@ describe('DetermineNextVersion Integration Test', () => {
           },
         })
         .mockResolvedValueOnce({
+          // Get all builds
+          data: {
+            data: [
+              {
+                id: 'build-5',
+                attributes: {
+                  version: '5',
+                  uploadedDate: '2023-01-01',
+                  processingState: 'VALID',
+                },
+              },
+            ],
+          },
+        })
+        .mockResolvedValueOnce({
           // Get build for version 101
           data: {
             data: {
@@ -376,7 +444,9 @@ describe('DetermineNextVersion Integration Test', () => {
           platform: PLATFORMS.IOS,
           createNewVersion: false,
         }),
-      ).rejects.toThrow('Cannot add builds to version 1.0.1: This version is already live on the App Store');
+      ).rejects.toThrow(
+        'Cannot add builds to version 1.0.1: This version is already live on the App Store',
+      );
     });
 
     test('1.0.1がPENDING_CONTRACT状態の場合', async () => {
@@ -436,6 +506,21 @@ describe('DetermineNextVersion Integration Test', () => {
           },
         })
         .mockResolvedValueOnce({
+          // Get all builds
+          data: {
+            data: [
+              {
+                id: 'build-5',
+                attributes: {
+                  version: '5',
+                  uploadedDate: '2023-01-01',
+                  processingState: 'VALID',
+                },
+              },
+            ],
+          },
+        })
+        .mockResolvedValueOnce({
           // Get build for version 101
           data: {
             data: {
@@ -453,7 +538,111 @@ describe('DetermineNextVersion Integration Test', () => {
           platform: PLATFORMS.IOS,
           createNewVersion: false,
         }),
-      ).rejects.toThrow('Cannot add builds to version 1.0.1: This version is pending contract agreement');
+      ).rejects.toThrow(
+        'Cannot add builds to version 1.0.1: This version is pending contract agreement',
+      );
+    });
+  });
+
+  test('アップロード済みビルドを考慮して最大ビルド番号を決定する', async () => {
+    const bundleId = 'com.example.app';
+
+    mockHttpClient.get
+      .mockResolvedValueOnce({
+        // Find app
+        data: {
+          data: [
+            {
+              id: 'app-123',
+              attributes: {
+                bundleId,
+                name: 'Example App',
+              },
+            },
+          ],
+        },
+      })
+      .mockResolvedValueOnce({
+        // Get live version
+        data: {
+          data: [
+            {
+              id: 'version-100',
+              attributes: {
+                versionString: '1.0.0',
+                appStoreState: APP_STORE_STATES.READY_FOR_SALE,
+              },
+            },
+          ],
+        },
+      })
+      .mockResolvedValueOnce({
+        // Get build for live version
+        data: {
+          data: {
+            attributes: {
+              version: '89',
+            },
+          },
+        },
+      })
+      .mockResolvedValueOnce({
+        // Check if 1.0.1 exists
+        data: {
+          data: [
+            {
+              id: 'version-101',
+              attributes: {
+                versionString: '1.0.1',
+                appStoreState: APP_STORE_STATES.PREPARE_FOR_SUBMISSION,
+              },
+            },
+          ],
+        },
+      })
+      .mockResolvedValueOnce({
+        // Get all builds - includes uploaded build 90
+        data: {
+          data: [
+            {
+              id: 'build-90',
+              attributes: {
+                version: '90',
+                uploadedDate: '2023-01-02',
+                processingState: 'VALID',
+              },
+            },
+            {
+              id: 'build-89',
+              attributes: {
+                version: '89',
+                uploadedDate: '2023-01-01',
+                processingState: 'VALID',
+              },
+            },
+          ],
+        },
+      })
+      .mockResolvedValueOnce({
+        // Get build for version 1.0.1 - no build associated
+        data: {
+          data: null,
+        },
+      });
+
+    // Execute
+    const result = await useCase.execute({
+      bundleId,
+      platform: PLATFORMS.IOS,
+      createNewVersion: false,
+    });
+
+    // Assert - should be 91 because build 90 already exists
+    expect(result).toMatchObject({
+      version: '1.0.1',
+      buildNumber: '91',
+      action: VERSION_ACTIONS.INCREMENT_BUILD,
+      versionCreated: false,
     });
   });
 
@@ -610,6 +799,21 @@ describe('DetermineNextVersion Integration Test', () => {
                 attributes: {
                   versionString: '1.0.2',
                   appStoreState: APP_STORE_STATES.READY_FOR_SALE,
+                },
+              },
+            ],
+          },
+        })
+        .mockResolvedValueOnce({
+          // Get all builds
+          data: {
+            data: [
+              {
+                id: 'build-86',
+                attributes: {
+                  version: '86',
+                  uploadedDate: '2023-01-01',
+                  processingState: 'VALID',
                 },
               },
             ],

@@ -72,4 +72,3 @@ export function createBusinessLogicError(
 ): AppStoreConnectError {
   return new AppStoreConnectError(message, code, { reason });
 }
-
