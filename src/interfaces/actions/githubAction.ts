@@ -124,22 +124,18 @@ export class GitHubAction {
    * Log summary
    */
   private _logSummary(result: Result): void {
+    core.info('\n========================================');
+    core.info('SUMMARY');
     core.info('========================================');
-    core.info('Next Version Determination Summary:');
-    core.info('========================================');
-    core.info(`App: ${result.app.name} (${result.app.bundleId})`);
+    core.info(`App:          ${result.app.name}`);
+    core.info(`Bundle ID:    ${result.app.bundleId}`);
     core.info(`Live Version: ${result.liveVersion} (Build ${result.liveBuildNumber})`);
-    core.info(`Action: ${result.action}`);
-
-    if (result.version) {
-      core.info(`Next Version: ${result.version}`);
-      core.info(`Next Build: ${result.buildNumber}`);
-    }
-
+    core.info(`Next Version: ${result.version}`);
+    core.info(`Next Build:   ${result.buildNumber}`);
+    core.info(`Action:       ${result.action.toUpperCase()}`);
     if (result.versionCreated) {
-      core.info('✅ New version created successfully');
+      core.info('Status:       ✅ New version created');
     }
-
     core.info('========================================');
   }
 

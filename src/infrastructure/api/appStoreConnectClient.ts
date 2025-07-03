@@ -254,7 +254,7 @@ export class AppStoreConnectClient {
     // Request interceptor for logging
     this.client.interceptors.request.use(
       (config) => {
-        console.info(`[API] ${config.method?.toUpperCase()} ${config.url}`);
+        console.info(`  └─ [API] ${config.method?.toUpperCase()} ${config.url}`);
         return config;
       },
       (error) => {

@@ -55,39 +55,47 @@ export class DetermineNextVersionUseCase {
     createNewVersion = false,
   }: ExecuteParams): Promise<ExecuteResult> {
     // Step 1: Find the app
+    console.info('[Step 1] Finding app...');
     const app = await this.appStoreClient.findApp(bundleId);
-    console.info(`Found app: ${app.name} (${app.id})`);
+    console.info(`  └─ Found: ${app.name} (ID: ${app.id})`);
 
     // Step 2: Get the live version with build number
+    console.info('\n[Step 2] Getting live version...');
     const liveVersion = await this.appVersionService.getLiveVersion(app.id);
     console.info(
-      `Current live version: ${liveVersion.version} (Build ${liveVersion.buildNumber.getValue()})`,
+      `  └─ Live version: ${liveVersion.version} (Build ${liveVersion.buildNumber.getValue()})`,
     );
 
     // Step 3: Calculate the next version
+    console.info('\n[Step 3] Calculating next version...');
     const nextVersion = VersionCalculator.calculateNextVersion(liveVersion.version);
-    console.info(`Calculated next version: ${nextVersion}`);
+    console.info(`  └─ Next version: ${nextVersion}`);
 
     // Step 4: Check if the next version already exists
+    console.info('\n[Step 4] Checking if version exists...');
     const existingNextVersion = await this.appVersionService.findVersion(
       app.id,
       nextVersion.toString(),
     );
 
     // Step 4.5: Get all uploaded builds to find the actual maximum build number
-    console.info('Checking all uploaded builds...');
+    console.info('\n[Step 4.5] Analyzing all builds...');
     const allBuilds = await this.appStoreClient.getBuilds(app.id);
-    const buildNumbers = allBuilds.map(b => b.version.getValue()).sort((a, b) => b - a);
-    console.info(`Found ${allBuilds.length} builds: [${buildNumbers.slice(0, 5).join(', ')}${buildNumbers.length > 5 ? '...' : ''}]`);
-    
+    const buildNumbers = allBuilds.map((b) => b.version.getValue()).sort((a, b) => b - a);
+    console.info(`  └─ Total builds found: ${allBuilds.length}`);
+    console.info(
+      `  └─ Recent builds: [${buildNumbers.slice(0, 5).join(', ')}${buildNumbers.length > 5 ? '...' : ''}]`,
+    );
+
     const maxUploadedBuild = allBuilds.reduce((max, build) => {
       return build.version.getValue() > max.getValue() ? build.version : max;
     }, liveVersion.buildNumber);
-    
-    console.info(`Maximum build number from all sources: ${maxUploadedBuild.getValue()}`);
+
+    console.info(`  └─ Maximum build number: ${maxUploadedBuild.getValue()}`);
 
     // Step 5: Determine action based on version state
     // This will throw an error if the version exists but cannot accept new builds
+    console.info('\n[Step 5] Determining action...');
     const actionResult = await this._determineActionWithBuildNumber(
       existingNextVersion,
       maxUploadedBuild,
@@ -96,9 +104,10 @@ export class DetermineNextVersionUseCase {
     // Step 6: Create new version if needed
     let versionCreated = false;
     if (actionResult.action === VERSION_ACTIONS.NEW_VERSION && createNewVersion) {
+      console.info('\n[Step 6] Creating new version...');
       await this._createNewVersion(app.id, nextVersion, platform);
       versionCreated = true;
-      console.info(`Created new version: ${nextVersion}`);
+      console.info(`  └─ Created version: ${nextVersion}`);
     }
 
     // Step 7: Return results
@@ -122,21 +131,31 @@ export class DetermineNextVersionUseCase {
   ): Promise<ActionResult> {
     // If version exists, get its build number first
     if (existingVersion) {
-      console.info(`Version ${existingVersion.version} exists in state: ${existingVersion.state}`);
+      console.info(
+        `  └─ Found version ${existingVersion.version} in state: ${existingVersion.state}`,
+      );
       const existingBuildNumber = await this.appStoreClient.getBuildForVersion(existingVersion.id);
       existingVersion.buildNumber = existingBuildNumber;
-      console.info(`Version ${existingVersion.version} has build: ${existingBuildNumber.getValue()}`);
+      if (existingBuildNumber.getValue() === 0) {
+        console.info(`  └─ Version ${existingVersion.version} has no associated builds`);
+      } else {
+        console.info(
+          `  └─ Version ${existingVersion.version} has build: ${existingBuildNumber.getValue()}`,
+        );
+      }
     } else {
-      console.info('Next version does not exist, will create new version');
+      console.info('  └─ Version does not exist yet');
     }
 
     // Now determine action with the correct build number information
     const result = VersionCalculator.determineAction(existingVersion, currentMaxBuild);
-    
-    console.info(`Determined action: ${result.action}`);
+
     if (result.buildNumber) {
-      console.info(`Next build number will be: ${result.buildNumber.getValue()}`);
+      console.info(
+        `  └─ Next build number: ${result.buildNumber.getValue()} (max: ${currentMaxBuild.getValue()} + 1)`,
+      );
     }
+    console.info(`  └─ Action: ${result.action.toUpperCase()}`);
 
     return {
       action: result.action,

@@ -73,15 +73,10 @@ export class AppVersionService {
       version,
     });
 
-    console.info(`Searching for version ${version}, found ${versions.length} version(s)`);
-
     // Find exact version match
     const exactMatch = versions.find((v) => v.version.toString() === version);
 
     if (exactMatch) {
-      console.info(
-        `Found exact match: ${exactMatch.version.toString()} in state ${exactMatch.state}`,
-      );
       exactMatch.buildNumber = new BuildNumber(0);
       return exactMatch;
     }
