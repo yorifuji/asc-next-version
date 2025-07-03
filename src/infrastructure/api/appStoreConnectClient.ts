@@ -154,7 +154,7 @@ export class AppStoreConnectClient {
     const params: Record<string, string | number> = {
       'filter[app]': appId,
       sort: '-version',
-      limit: filters.limit || 200,
+      limit: filters.limit || 10,
     };
 
     if (filters.version) {
