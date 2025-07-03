@@ -57,7 +57,8 @@ node_modules/
 Thumbs.db
 
 # Build artifacts
-dist/
+dist/*
+!dist/index.cjs
 
 # TypeScript
 *.tsbuildinfo
