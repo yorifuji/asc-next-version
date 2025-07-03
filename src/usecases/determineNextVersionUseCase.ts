@@ -78,8 +78,8 @@ export class DetermineNextVersionUseCase {
       nextVersion.toString(),
     );
 
-    // Step 4.5: Get recent builds to find the maximum build number
-    console.info('\n[Step 4.5] Analyzing recent builds...');
+    // Step 5: Get recent builds to find the maximum build number
+    console.info('\n[Step 5] Analyzing recent builds...');
     const allBuilds = await this.appStoreClient.getBuilds(app.id);
     const buildNumbers = allBuilds.map((b) => b.version.getValue()).sort((a, b) => b - a);
     console.info(`  └─ Fetched ${allBuilds.length} most recent builds`);
@@ -91,24 +91,24 @@ export class DetermineNextVersionUseCase {
 
     console.info(`  └─ Maximum build number: ${maxUploadedBuild.getValue()}`);
 
-    // Step 5: Determine action based on version state
+    // Step 6: Determine action based on version state
     // This will throw an error if the version exists but cannot accept new builds
-    console.info('\n[Step 5] Determining action...');
+    console.info('\n[Step 6] Determining action...');
     const actionResult = await this._determineActionWithBuildNumber(
       existingNextVersion,
       maxUploadedBuild,
     );
 
-    // Step 6: Create new version if needed
+    // Step 7: Create new version if needed
     let versionCreated = false;
     if (actionResult.action === VERSION_ACTIONS.NEW_VERSION && createNewVersion) {
-      console.info('\n[Step 6] Creating new version...');
+      console.info('\n[Step 7] Creating new version...');
       await this._createNewVersion(app.id, nextVersion, platform);
       versionCreated = true;
       console.info(`  └─ Created version: ${nextVersion}`);
     }
 
-    // Step 7: Return results
+    // Step 8: Return results
     return {
       app: app.toObject(),
       liveVersion: liveVersion.version.toString(),
