@@ -79,15 +79,22 @@ export class VersionCalculator {
         // If the existing version has builds, check which is higher
         const existingVersionNextBuild = nextVersion.getNextBuildNumber();
         const currentMaxNextBuild = currentMaxBuild.increment();
+        
+        console.info(`Comparing build numbers:`);
+        console.info(`  - Next build for version ${nextVersion.version}: ${existingVersionNextBuild.getValue()}`);
+        console.info(`  - Next build from max uploaded: ${currentMaxNextBuild.getValue()}`);
 
         // Use the higher build number to avoid conflicts
         nextBuild =
           existingVersionNextBuild.getValue() > currentMaxNextBuild.getValue()
             ? existingVersionNextBuild
             : currentMaxNextBuild;
+            
+        console.info(`  → Selected: ${nextBuild.getValue()} (using ${nextBuild === existingVersionNextBuild ? 'version build' : 'max uploaded'})`);
       } else {
         // No builds for this version yet, use current max + 1
         nextBuild = currentMaxBuild.increment();
+        console.info(`Version ${nextVersion.version} has no builds, using max uploaded + 1: ${nextBuild.getValue()}`);
       }
 
       return {
