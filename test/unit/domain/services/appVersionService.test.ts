@@ -4,17 +4,16 @@ import { AppStoreVersion } from '../../../../src/domain/entities/appStoreVersion
 import { Version } from '../../../../src/domain/valueObjects/version.js';
 import { BuildNumber } from '../../../../src/domain/valueObjects/buildNumber.js';
 import { APP_STORE_STATES } from '../../../../src/shared/constants/index.js';
-import type { AppStoreConnectClient } from '../../../../src/infrastructure/api/appStoreConnectClient.js';
+import type { AppStoreConnectApiClient } from '../../../../src/infrastructure/api/appStoreConnectClient.js';
 
 describe('AppVersionService', () => {
-  const createMockClient = (): AppStoreConnectClient =>
+  const createMockClient = (): AppStoreConnectApiClient =>
     ({
-      getAppStoreVersions: vi.fn(),
-      getBuildForVersion: vi.fn(),
-      getBuilds: vi.fn(),
-      findApp: vi.fn(),
-      createAppStoreVersion: vi.fn(),
-      getPreReleaseVersions: vi.fn(),
+      fetchAppStoreVersions: vi.fn(),
+      fetchBuildNumberForVersion: vi.fn(),
+      fetchBuilds: vi.fn(),
+      findApplicationByBundleId: vi.fn(),
+      createNewAppStoreVersion: vi.fn(),
     }) as any;
 
   const createMockVersion = (
@@ -33,7 +32,7 @@ describe('AppVersionService', () => {
     return version;
   };
 
-  describe('getLiveVersion', () => {
+  describe('fetchLiveVersion', () => {
     test('returns the latest READY_FOR_SALE version', async () => {
       const mockClient = createMockClient();
       const service = new AppVersionService(mockClient);
@@ -44,10 +43,10 @@ describe('AppVersionService', () => {
         createMockVersion('1.2.0', APP_STORE_STATES.PREPARE_FOR_SUBMISSION),
       ];
 
-      vi.mocked(mockClient.getAppStoreVersions).mockResolvedValue(mockVersions);
-      vi.mocked(mockClient.getBuildForVersion).mockResolvedValue(new BuildNumber(10));
+      vi.mocked(mockClient.fetchAppStoreVersions).mockResolvedValue(mockVersions);
+      vi.mocked(mockClient.fetchBuildNumberForVersion).mockResolvedValue(new BuildNumber(10));
 
-      const result = await service.getLiveVersion('app-id');
+      const result = await service.fetchLiveVersion('app-id');
 
       expect(result.version.toString()).toBe('1.1.0');
       expect(result.buildNumber?.getValue()).toBe(10);
@@ -57,9 +56,9 @@ describe('AppVersionService', () => {
       const mockClient = createMockClient();
       const service = new AppVersionService(mockClient);
 
-      vi.mocked(mockClient.getAppStoreVersions).mockResolvedValue([]);
+      vi.mocked(mockClient.fetchAppStoreVersions).mockResolvedValue([]);
 
-      await expect(service.getLiveVersion('app-id')).rejects.toThrow('No live version found');
+      await expect(service.fetchLiveVersion('app-id')).rejects.toThrow('No live version found');
     });
 
     test('filters out non-READY_FOR_SALE versions', async () => {
@@ -71,9 +70,9 @@ describe('AppVersionService', () => {
         createMockVersion('1.1.0', APP_STORE_STATES.IN_REVIEW),
       ];
 
-      vi.mocked(mockClient.getAppStoreVersions).mockResolvedValue(mockVersions);
+      vi.mocked(mockClient.fetchAppStoreVersions).mockResolvedValue(mockVersions);
 
-      await expect(service.getLiveVersion('app-id')).rejects.toThrow('No live version found');
+      await expect(service.fetchLiveVersion('app-id')).rejects.toThrow('No live version found');
     });
 
     test('throws error when READY_FOR_SALE version has no build', async () => {
@@ -82,16 +81,16 @@ describe('AppVersionService', () => {
 
       const mockVersions = [createMockVersion('1.0.0', APP_STORE_STATES.READY_FOR_SALE)];
 
-      vi.mocked(mockClient.getAppStoreVersions).mockResolvedValue(mockVersions);
-      vi.mocked(mockClient.getBuildForVersion).mockResolvedValue(new BuildNumber(0));
+      vi.mocked(mockClient.fetchAppStoreVersions).mockResolvedValue(mockVersions);
+      vi.mocked(mockClient.fetchBuildNumberForVersion).mockResolvedValue(new BuildNumber(0));
 
-      await expect(service.getLiveVersion('app-id')).rejects.toThrow(
+      await expect(service.fetchLiveVersion('app-id')).rejects.toThrow(
         'READY_FOR_SALE version 1.0.0 has no associated build',
       );
     });
   });
 
-  describe('findVersion', () => {
+  describe('findVersionByString', () => {
     test('returns exact version match', async () => {
       const mockClient = createMockClient();
       const service = new AppVersionService(mockClient);
@@ -101,9 +100,9 @@ describe('AppVersionService', () => {
         createMockVersion('1.0.1', APP_STORE_STATES.PREPARE_FOR_SUBMISSION),
       ];
 
-      vi.mocked(mockClient.getAppStoreVersions).mockResolvedValue(mockVersions);
+      vi.mocked(mockClient.fetchAppStoreVersions).mockResolvedValue(mockVersions);
 
-      const result = await service.findVersion('app-id', '1.0.1');
+      const result = await service.findVersionByString('app-id', '1.0.1');
 
       expect(result?.version.toString()).toBe('1.0.1');
       expect(result?.buildNumber?.getValue()).toBe(0);
@@ -115,9 +114,9 @@ describe('AppVersionService', () => {
 
       const mockVersions = [createMockVersion('1.0.0', APP_STORE_STATES.READY_FOR_SALE)];
 
-      vi.mocked(mockClient.getAppStoreVersions).mockResolvedValue(mockVersions);
+      vi.mocked(mockClient.fetchAppStoreVersions).mockResolvedValue(mockVersions);
 
-      const result = await service.findVersion('app-id', '1.0.1');
+      const result = await service.findVersionByString('app-id', '1.0.1');
 
       expect(result).toBeNull();
     });
@@ -126,15 +125,15 @@ describe('AppVersionService', () => {
       const mockClient = createMockClient();
       const service = new AppVersionService(mockClient);
 
-      vi.mocked(mockClient.getAppStoreVersions).mockResolvedValue([]);
+      vi.mocked(mockClient.fetchAppStoreVersions).mockResolvedValue([]);
 
-      const result = await service.findVersion('app-id', '1.0.0');
+      const result = await service.findVersionByString('app-id', '1.0.0');
 
       expect(result).toBeNull();
     });
   });
 
-  describe('getMaxBuildNumber', () => {
+  describe('findMaximumBuildNumber', () => {
     test('returns maximum build number from all builds', async () => {
       const mockClient = createMockClient();
       const service = new AppVersionService(mockClient);
@@ -145,10 +144,10 @@ describe('AppVersionService', () => {
         { version: new BuildNumber(12) },
       ];
 
-      vi.mocked(mockClient.getBuilds).mockResolvedValue(mockBuilds);
+      vi.mocked(mockClient.fetchBuilds).mockResolvedValue(mockBuilds);
 
       const fallback = new BuildNumber(5);
-      const result = await service.getMaxBuildNumber('app-id', fallback);
+      const result = await service.findMaximumBuildNumber('app-id', fallback);
 
       expect(result.getValue()).toBe(15);
     });
@@ -157,10 +156,10 @@ describe('AppVersionService', () => {
       const mockClient = createMockClient();
       const service = new AppVersionService(mockClient);
 
-      vi.mocked(mockClient.getBuilds).mockResolvedValue([]);
+      vi.mocked(mockClient.fetchBuilds).mockResolvedValue([]);
 
       const fallback = new BuildNumber(10);
-      const result = await service.getMaxBuildNumber('app-id', fallback);
+      const result = await service.findMaximumBuildNumber('app-id', fallback);
 
       expect(result.getValue()).toBe(10);
     });
@@ -175,10 +174,10 @@ describe('AppVersionService', () => {
         { version: new BuildNumber(7) },
       ];
 
-      vi.mocked(mockClient.getBuilds).mockResolvedValue(mockBuilds);
+      vi.mocked(mockClient.fetchBuilds).mockResolvedValue(mockBuilds);
 
       const fallback = new BuildNumber(10);
-      const result = await service.getMaxBuildNumber('app-id', fallback);
+      const result = await service.findMaximumBuildNumber('app-id', fallback);
 
       expect(result.getValue()).toBe(10);
     });

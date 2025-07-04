@@ -1,72 +1,71 @@
 import axios from 'axios';
 import type { AxiosError, AxiosInstance } from 'axios';
-import { App } from '../../domain/entities/app.js';
+import { Application } from '../../domain/entities/app.js';
 import { AppStoreVersion } from '../../domain/entities/appStoreVersion.js';
 import { BuildNumber } from '../../domain/valueObjects/buildNumber.js';
 import type { Version } from '../../domain/valueObjects/version.js';
 import { createApiError } from '../../shared/errors/customErrors.js';
-import { API_CONFIG } from '../../shared/constants/index.js';
+import { APP_STORE_CONNECT_API } from '../../shared/constants/index.js';
 import type { JwtGenerator } from '../auth/jwtGenerator.js';
-import type { AppStoreState, Platform } from '../../shared/constants/index.js';
+import type { AppStoreState, PlatformType } from '../../shared/constants/index.js';
 import type {
   ApiErrorResponse,
-  ApiResource,
   ApiResponse,
   AppAttributes,
   AppStoreVersionAttributes,
   BuildAttributes,
   CreateAppStoreVersionRequest,
-  PreReleaseVersionAttributes,
 } from '../../shared/types/api.js';
 
-interface VersionFilters {
-  state?: AppStoreState;
-  version?: string;
-  platform?: Platform;
-  limit?: number;
+// ===== Type Definitions =====
+
+export interface VersionFilterOptions {
+  readonly state?: AppStoreState;
+  readonly version?: string;
+  readonly platform?: PlatformType;
+  readonly limit?: number;
 }
 
-interface BuildFilters {
-  limit?: number;
-  version?: string;
-  preReleaseVersion?: string;
+export interface BuildFilterOptions {
+  readonly limit?: number;
+  readonly version?: string;
+  readonly preReleaseVersion?: string;
 }
 
-interface Build {
-  id: string;
-  version: BuildNumber;
-  uploadedDate: string;
-  processingState: string;
+export interface BuildInfo {
+  readonly id: string;
+  readonly version: BuildNumber;
+  readonly uploadedDate: string;
+  readonly processingState: string;
 }
 
-/**
- * Client for App Store Connect API
- */
-export class AppStoreConnectClient {
-  private client: AxiosInstance;
-  private jwtGenerator: JwtGenerator;
-  private token: string = '';
+// ===== App Store Connect API Client =====
 
-  constructor(jwtGenerator: JwtGenerator) {
-    this.client = axios.create({
-      baseURL: API_CONFIG.BASE_URL,
-      timeout: API_CONFIG.TIMEOUT,
+export class AppStoreConnectApiClient {
+  private readonly _httpClient: AxiosInstance;
+  private readonly _jwtGenerator: JwtGenerator;
+  private _currentToken: string = '';
+
+  constructor(config: { jwtGenerator: JwtGenerator }) {
+    this._httpClient = axios.create({
+      baseURL: APP_STORE_CONNECT_API.BASE_URL,
+      timeout: APP_STORE_CONNECT_API.TIMEOUT_MS,
       headers: {
         'Content-Type': 'application/json',
       },
     });
-    this.jwtGenerator = jwtGenerator;
-    this._refreshToken();
-    this._setupInterceptors();
+    this._jwtGenerator = config.jwtGenerator;
+    this._refreshAuthToken();
+    this._configureInterceptors();
   }
 
   /**
-   * Find app by bundle ID
+   * Search for an application by bundle identifier
    */
-  async findApp(bundleId: string): Promise<App> {
+  async findApplicationByBundleId(bundleId: string): Promise<Application> {
     this._ensureValidToken();
 
-    const response = await this.client.get<ApiResponse<AppAttributes>>('/apps', {
+    const response = await this._httpClient.get<ApiResponse<AppAttributes>>('/apps', {
       params: {
         'filter[bundleId]': bundleId,
       },
@@ -81,15 +80,15 @@ export class AppStoreConnectClient {
     if (!appData) {
       throw createApiError(`No app found with bundle ID: ${bundleId}`, 404, null);
     }
-    return App.fromApiResponse(appData);
+    return Application.createFromApiResponse(appData);
   }
 
   /**
-   * Get app store versions
+   * Retrieve app store versions with optional filters
    */
-  async getAppStoreVersions(
+  async fetchAppStoreVersions(
     appId: string,
-    filters: VersionFilters = {},
+    filters: VersionFilterOptions = {},
   ): Promise<AppStoreVersion[]> {
     this._ensureValidToken();
 
@@ -107,23 +106,23 @@ export class AppStoreConnectClient {
       params.limit = filters.limit;
     }
 
-    const response = await this.client.get<ApiResponse<AppStoreVersionAttributes>>(
+    const response = await this._httpClient.get<ApiResponse<AppStoreVersionAttributes>>(
       `/apps/${appId}/appStoreVersions`,
       { params },
     );
 
     const data = response.data.data;
     const versions = Array.isArray(data) ? data : [data];
-    return versions.map((versionData) => AppStoreVersion.fromApiResponse(versionData));
+    return versions.map((versionData) => AppStoreVersion.createFromApiResponse(versionData));
   }
 
   /**
    * Get build for a specific version
    */
-  async getBuildForVersion(versionId: string): Promise<BuildNumber> {
+  async fetchBuildNumberForVersion(versionId: string): Promise<BuildNumber> {
     this._ensureValidToken();
 
-    const response = await this.client.get<ApiResponse<BuildAttributes>>(
+    const response = await this._httpClient.get<ApiResponse<BuildAttributes>>(
       `/appStoreVersions/${versionId}/build`,
     );
 
@@ -148,7 +147,7 @@ export class AppStoreConnectClient {
   /**
    * Get builds for an app
    */
-  async getBuilds(appId: string, filters: BuildFilters = {}): Promise<Build[]> {
+  async fetchBuilds(appId: string, filters: BuildFilterOptions = {}): Promise<BuildInfo[]> {
     this._ensureValidToken();
 
     const params: Record<string, string | number> = {
@@ -164,7 +163,9 @@ export class AppStoreConnectClient {
       params['filter[preReleaseVersion]'] = filters.preReleaseVersion;
     }
 
-    const response = await this.client.get<ApiResponse<BuildAttributes>>('/builds', { params });
+    const response = await this._httpClient.get<ApiResponse<BuildAttributes>>('/builds', {
+      params,
+    });
 
     const data = response.data.data;
     if (!data || (Array.isArray(data) && data.length === 0)) {
@@ -181,38 +182,12 @@ export class AppStoreConnectClient {
   }
 
   /**
-   * Get pre-release versions
+   * Create a new app store version entry
    */
-  async getPreReleaseVersions(
-    appId: string,
-    version: string,
-  ): Promise<ApiResource<PreReleaseVersionAttributes>[]> {
-    this._ensureValidToken();
-
-    const params = {
-      'filter[app]': appId,
-      'filter[version]': version,
-      limit: 1,
-    };
-
-    const response = await this.client.get<ApiResponse<PreReleaseVersionAttributes>>(
-      '/preReleaseVersions',
-      { params },
-    );
-
-    const data = response.data.data;
-    if (!data) return [];
-
-    return Array.isArray(data) ? data : [data];
-  }
-
-  /**
-   * Create a new app store version
-   */
-  async createAppStoreVersion(
+  async createNewAppStoreVersion(
     appId: string,
     version: Version,
-    platform: Platform,
+    platform: PlatformType,
   ): Promise<AppStoreVersion> {
     this._ensureValidToken();
 
@@ -234,7 +209,7 @@ export class AppStoreConnectClient {
       },
     };
 
-    const response = await this.client.post<ApiResponse<AppStoreVersionAttributes>>(
+    const response = await this._httpClient.post<ApiResponse<AppStoreVersionAttributes>>(
       '/appStoreVersions',
       request,
     );
@@ -244,15 +219,15 @@ export class AppStoreConnectClient {
     if (!versionData) {
       throw createApiError('Failed to create app store version', 500, null);
     }
-    return AppStoreVersion.fromApiResponse(versionData);
+    return AppStoreVersion.createFromApiResponse(versionData);
   }
 
   /**
-   * Setup interceptors
+   * Configure HTTP interceptors for logging and error handling
    */
-  private _setupInterceptors(): void {
+  private _configureInterceptors(): void {
     // Request interceptor for logging
-    this.client.interceptors.request.use(
+    this._httpClient.interceptors.request.use(
       (config) => {
         console.info(`  └─ [API] ${config.method?.toUpperCase()} ${config.url}`);
         return config;
@@ -264,7 +239,7 @@ export class AppStoreConnectClient {
     );
 
     // Response interceptor for error handling
-    this.client.interceptors.response.use(
+    this._httpClient.interceptors.response.use(
       (response) => response,
       (error: AxiosError<ApiErrorResponse>) => {
         if (!error.response) {
@@ -287,19 +262,22 @@ export class AppStoreConnectClient {
   }
 
   /**
-   * Refresh JWT token if needed
+   * Refresh authentication token
    */
-  private _refreshToken(): void {
-    this.token = this.jwtGenerator.generateToken();
-    this.client.defaults.headers.common['Authorization'] = `Bearer ${this.token}`;
+  private _refreshAuthToken(): void {
+    this._currentToken = this._jwtGenerator.generateAuthToken();
+    this._httpClient.defaults.headers.common['Authorization'] = `Bearer ${this._currentToken}`;
   }
 
   /**
    * Ensure token is valid
    */
   private _ensureValidToken(): void {
-    if (this.jwtGenerator.isTokenExpiringSoon(this.token)) {
-      this._refreshToken();
+    if (this._jwtGenerator.isTokenExpiringSoon(this._currentToken)) {
+      this._refreshAuthToken();
     }
   }
 }
+
+// Backward compatibility alias
+export { AppStoreConnectApiClient as AppStoreConnectClient };

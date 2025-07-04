@@ -1,138 +1,163 @@
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { Version } from '../valueObjects/version.js';
 import type { BuildNumber } from '../valueObjects/buildNumber.js';
 import type { AppStoreVersion } from '../entities/appStoreVersion.js';
-import { VERSION_ACTIONS } from '../../shared/constants/index.js';
-import type { VersionAction } from '../../shared/constants/index.js';
-import { createBusinessLogicError, ERROR_CODES } from '../../shared/errors/customErrors.js';
+import { APP_STORE_STATES, VERSION_ACTION_TYPES } from '../../shared/constants/index.js';
+import type { VersionActionType } from '../../shared/constants/index.js';
+import {
+  APPLICATION_ERROR_CODES,
+  createBusinessLogicError,
+} from '../../shared/errors/customErrors.js';
 
-type IncrementType = 'patch' | 'minor' | 'major';
+// ===== Type Definitions =====
 
-interface ActionResult {
-  action: VersionAction;
-  buildNumber?: BuildNumber | null;
-  requiresVersionCreation?: boolean;
+export type VersionIncrementType = 'patch' | 'minor' | 'major';
+
+export interface VersionActionResult {
+  readonly action: VersionActionType;
+  readonly buildNumber: BuildNumber | null;
+  readonly requiresVersionCreation: boolean;
 }
 
-/**
- * Domain service for calculating next version and build number
- */
-export class VersionCalculator {
+// ===== Version Calculator Service =====
+
+export class VersionCalculationService {
   /**
-   * Calculate the next version based on the current live version
-   * @param {Version} currentVersion - The current live version
-   * @param {string} incrementType - Type of increment (patch, minor, major)
-   * @returns {Version} The next version
+   * Calculate the next semantic version
    */
-  static calculateNextVersion(
+  static calculateNextSemanticVersion(
     currentVersion: Version,
-    incrementType: IncrementType = 'patch',
+    incrementType: VersionIncrementType = 'patch',
   ): Version {
-    if (!(currentVersion instanceof Version)) {
+    const incrementMethods: Record<VersionIncrementType, () => Version> = {
+      patch: () => currentVersion.incrementPatch(),
+      minor: () => currentVersion.incrementMinor(),
+      major: () => currentVersion.incrementMajor(),
+    };
+
+    const incrementMethod = incrementMethods[incrementType];
+    if (!incrementMethod) {
       throw createBusinessLogicError(
-        'Current version must be a Version instance',
-        ERROR_CODES.VALIDATION_ERROR,
-        'Invalid version type',
+        `Invalid version increment type: "${incrementType}"`,
+        APPLICATION_ERROR_CODES.VALIDATION_ERROR,
+        'Must be one of: patch, minor, major',
       );
     }
 
-    switch (incrementType) {
-      case 'patch':
-        return currentVersion.incrementPatch();
-      case 'minor':
-        return currentVersion.incrementMinor();
-      case 'major':
-        return currentVersion.incrementMajor();
-      default:
-        throw createBusinessLogicError(
-          `Invalid increment type: ${incrementType}`,
-          ERROR_CODES.VALIDATION_ERROR,
-          'Invalid increment type',
-        );
-    }
+    return incrementMethod();
   }
 
   /**
-   * Determine the action to take based on version existence and state
-   * @param {AppStoreVersion|null} nextVersion - The next version if it exists
-   * @param {BuildNumber} currentMaxBuild - Current maximum build number
-   * @returns {Object} Action details
+   * Determine the appropriate action based on version state
    */
-  static determineAction(
-    nextVersion: AppStoreVersion | null,
-    currentMaxBuild: BuildNumber,
-  ): ActionResult {
-    if (!nextVersion) {
-      // Version doesn't exist, create new
+  static determineVersionAction(
+    targetVersion: AppStoreVersion | null,
+    maxExistingBuildNumber: BuildNumber,
+  ): VersionActionResult {
+    // Case 1: Version doesn't exist yet
+    if (!targetVersion) {
       return {
-        action: VERSION_ACTIONS.NEW_VERSION,
-        buildNumber: currentMaxBuild.increment(),
+        action: VERSION_ACTION_TYPES.CREATE_NEW_VERSION,
+        buildNumber: maxExistingBuildNumber.increment(),
         requiresVersionCreation: true,
       };
     }
 
-    if (nextVersion.canIncrementBuild()) {
-      // Version exists and can be incremented
-      // Use the maximum of the existing version's build number and the current max build
-      let nextBuild: BuildNumber;
-
-      if (nextVersion.buildNumber.getValue() > 0) {
-        // If the existing version has builds, check which is higher
-        const existingVersionNextBuild = nextVersion.getNextBuildNumber();
-        const currentMaxNextBuild = currentMaxBuild.increment();
-
-        // Use the higher build number to avoid conflicts
-        nextBuild =
-          existingVersionNextBuild.getValue() > currentMaxNextBuild.getValue()
-            ? existingVersionNextBuild
-            : currentMaxNextBuild;
-      } else {
-        // No builds for this version yet, use current max + 1
-        nextBuild = currentMaxBuild.increment();
-      }
+    // Case 2: Version exists and allows build increment
+    if (targetVersion.canIncrementBuildNumber()) {
+      const nextBuildNumber = this._calculateNextBuildNumber(targetVersion, maxExistingBuildNumber);
 
       return {
-        action: VERSION_ACTIONS.INCREMENT_BUILD,
-        buildNumber: nextBuild,
+        action: VERSION_ACTION_TYPES.INCREMENT_BUILD_NUMBER,
+        buildNumber: nextBuildNumber,
         requiresVersionCreation: false,
       };
     }
 
-    // Version exists but cannot be incremented - throw error with detailed message
-    const stateMessages: Record<string, string> = {
-      READY_FOR_SALE:
-        'This version is already live on the App Store. Create a new version (e.g., increment to next patch version).',
-      ACCEPTED:
-        'This version has been accepted by Apple and is waiting to be released. Either release it first or create a new version.',
-      PROCESSING_FOR_APP_STORE:
-        'This version is being processed by Apple. Wait for processing to complete or create a new version.',
-      PENDING_CONTRACT:
-        'This version is pending contract agreement. Resolve contract issues in App Store Connect or create a new version.',
-      WAITING_FOR_EXPORT_COMPLIANCE:
-        'This version is waiting for export compliance. Complete export compliance in App Store Connect or create a new version.',
-      REPLACED_WITH_NEW_VERSION:
-        'This version has been replaced by a newer version. Use a higher version number.',
-      REMOVED_FROM_SALE: 'This version has been removed from sale. Create a new version.',
-      NOT_APPLICABLE_FOR_REVIEW: 'This version is not applicable for review. Create a new version.',
+    // Case 3: Version exists but cannot be incremented
+    throw this._createVersionStateError(targetVersion);
+  }
+
+  /**
+   * Calculate the next build number avoiding conflicts
+   */
+  private static _calculateNextBuildNumber(
+    version: AppStoreVersion,
+    maxExistingBuildNumber: BuildNumber,
+  ): BuildNumber {
+    const versionHasBuilds = version.buildNumber.getValue() > 0;
+
+    if (!versionHasBuilds) {
+      // No builds for this version yet
+      return maxExistingBuildNumber.increment();
+    }
+
+    // Version has builds - use the higher of the two
+    const versionNextBuild = version.calculateNextBuildNumber();
+    const globalNextBuild = maxExistingBuildNumber.increment();
+
+    return versionNextBuild.isGreaterThan(globalNextBuild) ? versionNextBuild : globalNextBuild;
+  }
+
+  /**
+   * Create detailed error for version state issues
+   */
+  private static _createVersionStateError(version: AppStoreVersion): never {
+    const stateDescriptions: Record<string, string> = {
+      [APP_STORE_STATES.READY_FOR_SALE]:
+        'This version is already live on the App Store. Create a new version.',
+      [APP_STORE_STATES.ACCEPTED]:
+        'This version has been accepted and is waiting to be released. Release it first or create a new version.',
+      [APP_STORE_STATES.PROCESSING_FOR_APP_STORE]:
+        'This version is being processed by Apple. Wait for completion or create a new version.',
+      [APP_STORE_STATES.PENDING_CONTRACT]:
+        'This version requires contract agreement. Resolve in App Store Connect or create a new version.',
+      [APP_STORE_STATES.WAITING_FOR_EXPORT_COMPLIANCE]:
+        'This version needs export compliance. Complete in App Store Connect or create a new version.',
+      [APP_STORE_STATES.REPLACED_WITH_NEW_VERSION]:
+        'This version has been replaced. Use a higher version number.',
+      [APP_STORE_STATES.REMOVED_FROM_SALE]:
+        'This version has been removed from sale. Create a new version.',
+      [APP_STORE_STATES.NOT_APPLICABLE_FOR_REVIEW]:
+        'This version is not applicable for review. Create a new version.',
+      [APP_STORE_STATES.PREPARE_FOR_SUBMISSION]:
+        'This version is being prepared for submission. Wait for submission or create a new version.',
+      [APP_STORE_STATES.WAITING_FOR_REVIEW]:
+        'This version is waiting for review. Wait for review completion or create a new version.',
+      [APP_STORE_STATES.IN_REVIEW]:
+        'This version is currently in review. Wait for review completion or create a new version.',
+      [APP_STORE_STATES.REJECTED]:
+        'This version has been rejected. Address rejection issues or create a new version.',
+      [APP_STORE_STATES.PENDING_DEVELOPER_RELEASE]:
+        'This version is pending developer release. Release it or create a new version.',
+      [APP_STORE_STATES.DEVELOPER_REJECTED]:
+        'This version was rejected by the developer. Resubmit or create a new version.',
+      [APP_STORE_STATES.METADATA_REJECTED]:
+        'This version has metadata issues. Fix metadata or create a new version.',
+      [APP_STORE_STATES.INVALID_BINARY]:
+        'This version has an invalid binary. Upload a new binary or create a new version.',
+      [APP_STORE_STATES.DEVELOPER_REMOVED_FROM_SALE]:
+        'This version was removed by the developer. Create a new version.',
     };
 
-    const message =
-      stateMessages[nextVersion.state] ||
-      `This version is in state ${nextVersion.state} which does not allow new builds.`;
+    const description =
+      stateDescriptions[version.state] ||
+      `This version is in state "${version.state}" which does not allow new builds.`;
 
     throw createBusinessLogicError(
-      `Cannot add builds to version ${nextVersion.version.toString()}: ${message}`,
-      ERROR_CODES.VERSION_NOT_INCREMENTABLE,
-      nextVersion.state,
+      `Cannot add builds to version ${version.version.toString()}: ${description}`,
+      APPLICATION_ERROR_CODES.VERSION_INCREMENT_NOT_ALLOWED,
+      version.state,
     );
   }
 
   /**
-   * Validate version transition
-   * @param {Version} currentVersion - Current version
-   * @param {Version} nextVersion - Proposed next version
-   * @returns {boolean} Whether the transition is valid
+   * Validate version progression
    */
-  static isValidVersionTransition(currentVersion: Version, nextVersion: Version): boolean {
-    return nextVersion.compareTo(currentVersion) > 0;
+  static isValidVersionProgression(currentVersion: Version, proposedVersion: Version): boolean {
+    return proposedVersion.isGreaterThan(currentVersion);
   }
 }
+
+// Backward compatibility alias
+export { VersionCalculationService as VersionCalculator };

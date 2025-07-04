@@ -1,5 +1,8 @@
 import { describe, expect, test } from 'vitest';
-import { BuildNumber } from '../../../../src/domain/valueObjects/buildNumber.js';
+import {
+  ApplicationBuildNumber,
+  BuildNumber,
+} from '../../../../src/domain/valueObjects/buildNumber.js';
 import { ValidationError } from '../../../../src/shared/errors/customErrors.js';
 
 describe('BuildNumber', () => {
@@ -147,6 +150,29 @@ describe('BuildNumber', () => {
       const result = BuildNumber.from('42');
 
       expect(result).toBeInstanceOf(BuildNumber);
+      expect(result.getValue()).toBe(42);
+    });
+  });
+
+  describe('create (ApplicationBuildNumber)', () => {
+    test('既存のApplicationBuildNumberインスタンスをそのまま返す', () => {
+      const original = new ApplicationBuildNumber(42);
+      const result = ApplicationBuildNumber.create(original);
+
+      expect(result).toBe(original);
+    });
+
+    test('数値から新しいApplicationBuildNumberを作成する', () => {
+      const result = ApplicationBuildNumber.create(42);
+
+      expect(result).toBeInstanceOf(ApplicationBuildNumber);
+      expect(result.getValue()).toBe(42);
+    });
+
+    test('文字列から新しいApplicationBuildNumberを作成する', () => {
+      const result = ApplicationBuildNumber.create('42');
+
+      expect(result).toBeInstanceOf(ApplicationBuildNumber);
       expect(result.getValue()).toBe(42);
     });
   });

@@ -1,24 +1,31 @@
-/**
- * API Response Types for App Store Connect
- */
+import type { AppStoreState, PlatformType } from '../constants/index.js';
 
-import type { AppStoreState, Platform } from '../constants/index.js';
+// ===== Base API Types =====
 
-// Base types for API responses
 export interface ApiResourceAttributes {
-  [key: string]: unknown;
+  [key: string]:
+    | string
+    | number
+    | boolean
+    | Date
+    | null
+    | undefined
+    | ApiResourceAttributes
+    | ApiResourceAttributes[];
+}
+
+export interface ApiResourceRelationship {
+  data?: ApiResourceIdentifier | ApiResourceIdentifier[];
+  links?: ApiLinks;
 }
 
 export interface ApiResourceRelationships {
-  [key: string]: {
-    data?: ApiResourceIdentifier | ApiResourceIdentifier[];
-    links?: ApiLinks;
-  };
+  [key: string]: ApiResourceRelationship;
 }
 
 export interface ApiResourceIdentifier {
-  type: string;
-  id: string;
+  readonly type: string;
+  readonly id: string;
 }
 
 export interface ApiResource<T extends ApiResourceAttributes = ApiResourceAttributes> {
@@ -30,100 +37,108 @@ export interface ApiResource<T extends ApiResourceAttributes = ApiResourceAttrib
 }
 
 export interface ApiLinks {
-  self?: string;
-  related?: string;
-  next?: string;
+  readonly self?: string;
+  readonly related?: string;
+  readonly next?: string;
+}
+
+export interface ApiPaging {
+  readonly total: number;
+  readonly limit: number;
+}
+
+export interface ApiMeta {
+  readonly paging?: ApiPaging;
 }
 
 export interface ApiResponse<T extends ApiResourceAttributes = ApiResourceAttributes> {
-  data: ApiResource<T> | ApiResource<T>[];
-  included?: ApiResource[];
-  links?: ApiLinks;
-  meta?: {
-    paging?: {
-      total: number;
-      limit: number;
-    };
-  };
+  readonly data: ApiResource<T> | ApiResource<T>[];
+  readonly included?: ApiResource[];
+  readonly links?: ApiLinks;
+  readonly meta?: ApiMeta;
+}
+
+export interface ApiErrorSource {
+  readonly parameter?: string;
+  readonly pointer?: string;
 }
 
 export interface ApiError {
-  id?: string;
-  status?: string;
-  code?: string;
-  title?: string;
-  detail?: string;
-  source?: {
-    parameter?: string;
-    pointer?: string;
-  };
+  readonly id?: string;
+  readonly status?: string;
+  readonly code?: string;
+  readonly title?: string;
+  readonly detail?: string;
+  readonly source?: ApiErrorSource;
 }
 
 export interface ApiErrorResponse {
-  errors: ApiError[];
+  readonly errors: readonly ApiError[];
 }
 
-// Specific App Store Connect types
+// ===== App Store Connect Resource Types =====
 export interface AppAttributes extends ApiResourceAttributes {
-  bundleId: string;
-  name: string;
-  sku: string;
-  primaryLocale: string;
+  readonly bundleId: string;
+  readonly name: string;
+  readonly sku: string;
+  readonly primaryLocale: string;
 }
 
 export interface AppStoreVersionAttributes extends ApiResourceAttributes {
-  versionString: string;
-  appStoreState: AppStoreState;
-  platform: Platform;
-  createdDate: string;
-  downloadable?: boolean;
-  releaseType?: string;
+  readonly versionString: string;
+  readonly appStoreState: AppStoreState;
+  readonly platform: PlatformType;
+  readonly createdDate: string;
+  readonly downloadable?: boolean;
+  readonly releaseType?: 'MANUAL' | 'SCHEDULED' | 'AUTOMATIC';
 }
 
 export interface BuildAttributes extends ApiResourceAttributes {
-  version: string;
-  uploadedDate: string;
-  processingState: string;
-  expired?: boolean;
-  minOsVersion?: string;
-  lsMinimumSystemVersion?: string;
-  computedMinMacOsVersion?: string;
-  iconAssetToken?: string;
-  usesNonExemptEncryption?: boolean;
+  readonly version: string;
+  readonly uploadedDate: string;
+  readonly processingState: 'PROCESSING' | 'VALID' | 'INVALID' | 'FAILED';
+  readonly expired?: boolean;
+  readonly minOsVersion?: string;
+  readonly lsMinimumSystemVersion?: string;
+  readonly computedMinMacOsVersion?: string;
+  readonly iconAssetToken?: string;
+  readonly usesNonExemptEncryption?: boolean;
 }
 
 export interface PreReleaseVersionAttributes extends ApiResourceAttributes {
-  version: string;
-  platform: Platform;
+  readonly version: string;
+  readonly platform: PlatformType;
 }
 
-// Request body types
-export interface CreateAppStoreVersionRequest {
-  data: {
-    type: 'appStoreVersions';
-    attributes: {
-      platform: Platform;
-      versionString: string;
-    };
-    relationships: {
-      app: {
-        data: ApiResourceIdentifier;
-      };
+// ===== API Request Types =====
+export interface CreateAppStoreVersionRequestData {
+  readonly type: 'appStoreVersions';
+  readonly attributes: {
+    readonly platform: PlatformType;
+    readonly versionString: string;
+  };
+  readonly relationships: {
+    readonly app: {
+      readonly data: ApiResourceIdentifier;
     };
   };
 }
 
-// Error types with proper typing
+export interface CreateAppStoreVersionRequest {
+  readonly data: CreateAppStoreVersionRequestData;
+}
+
+// ===== Error Types =====
 export interface ErrorDetails {
-  field?: string;
-  value?: unknown;
-  reason?: string;
-  statusCode?: number;
-  response?: ApiErrorResponse | unknown;
+  readonly field?: string;
+  readonly value?: string | number | boolean | null;
+  readonly reason?: string;
+  readonly statusCode?: number;
+  readonly response?: ApiErrorResponse | Record<string, unknown>;
 }
 
 export interface ErrorWithDetails extends Error {
-  details?: ErrorDetails;
-  code?: string;
-  statusCode?: number;
+  readonly details?: ErrorDetails;
+  readonly code?: string;
+  readonly statusCode?: number;
 }

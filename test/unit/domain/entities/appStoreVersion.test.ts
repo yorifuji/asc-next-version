@@ -68,10 +68,10 @@ describe('AppStoreVersion', () => {
     });
   });
 
-  describe('fromApiResponse', () => {
+  describe('createFromApiResponse', () => {
     test('creates an AppStoreVersion from API response', () => {
       const apiResponse = createMockApiResource();
-      const appStoreVersion = AppStoreVersion.fromApiResponse(apiResponse);
+      const appStoreVersion = AppStoreVersion.createFromApiResponse(apiResponse);
 
       expect(appStoreVersion.id).toBe('test-version-id');
       expect(appStoreVersion.version.toString()).toBe('1.0.0');
@@ -81,7 +81,7 @@ describe('AppStoreVersion', () => {
     });
   });
 
-  describe('canIncrementBuild', () => {
+  describe('canIncrementBuildNumber', () => {
     test('returns true for editable states', () => {
       const version = new Version('1.0.0');
       const editableStates = [
@@ -105,7 +105,7 @@ describe('AppStoreVersion', () => {
           platform: 'IOS',
           createdDate: '2023-01-01',
         });
-        expect(appStoreVersion.canIncrementBuild()).toBe(true);
+        expect(appStoreVersion.canIncrementBuildNumber()).toBe(true);
       });
     });
 
@@ -131,12 +131,12 @@ describe('AppStoreVersion', () => {
           platform: 'IOS',
           createdDate: '2023-01-01',
         });
-        expect(appStoreVersion.canIncrementBuild()).toBe(false);
+        expect(appStoreVersion.canIncrementBuildNumber()).toBe(false);
       });
     });
   });
 
-  describe('getNextBuildNumber', () => {
+  describe('calculateNextBuildNumber', () => {
     test('increments existing build number', () => {
       const version = new Version('1.0.0');
       const buildNumber = new BuildNumber(42);
@@ -149,7 +149,7 @@ describe('AppStoreVersion', () => {
         createdDate: '2023-01-01',
       });
 
-      const nextBuild = appStoreVersion.getNextBuildNumber();
+      const nextBuild = appStoreVersion.calculateNextBuildNumber();
       expect(nextBuild.getValue()).toBe(43);
     });
 
@@ -164,8 +164,69 @@ describe('AppStoreVersion', () => {
         createdDate: '2023-01-01',
       });
 
-      const nextBuild = appStoreVersion.getNextBuildNumber();
+      const nextBuild = appStoreVersion.calculateNextBuildNumber();
       expect(nextBuild.getValue()).toBe(1);
+    });
+  });
+
+  describe('isLiveVersion', () => {
+    test('returns true for READY_FOR_SALE state', () => {
+      const appStoreVersion = new AppStoreVersion({
+        id: 'test-id',
+        version: new Version('1.0.0'),
+        buildNumber: 10,
+        state: APP_STORE_STATES.READY_FOR_SALE,
+        platform: 'IOS',
+        createdDate: '2023-01-01',
+      });
+
+      expect(appStoreVersion.isLiveVersion()).toBe(true);
+    });
+
+    test('returns false for non-READY_FOR_SALE states', () => {
+      const nonLiveStates = [
+        APP_STORE_STATES.PREPARE_FOR_SUBMISSION,
+        APP_STORE_STATES.IN_REVIEW,
+        APP_STORE_STATES.WAITING_FOR_REVIEW,
+        APP_STORE_STATES.DEVELOPER_REJECTED,
+        APP_STORE_STATES.REJECTED,
+      ];
+
+      nonLiveStates.forEach((state) => {
+        const appStoreVersion = new AppStoreVersion({
+          id: 'test-id',
+          version: new Version('1.0.0'),
+          buildNumber: 10,
+          state,
+          platform: 'IOS',
+          createdDate: '2023-01-01',
+        });
+        expect(appStoreVersion.isLiveVersion()).toBe(false);
+      });
+    });
+  });
+
+  describe('toPlainObject', () => {
+    test('returns plain object representation', () => {
+      const appStoreVersion = new AppStoreVersion({
+        id: 'test-id',
+        version: new Version('2.1.0'),
+        buildNumber: new BuildNumber(42),
+        state: APP_STORE_STATES.IN_REVIEW,
+        platform: 'IOS',
+        createdDate: '2023-01-01',
+      });
+
+      const plainObject = appStoreVersion.toPlainObject();
+
+      expect(plainObject).toEqual({
+        id: 'test-id',
+        version: '2.1.0',
+        buildNumber: 42,
+        state: APP_STORE_STATES.IN_REVIEW,
+        platform: 'IOS',
+        createdDate: '2023-01-01',
+      });
     });
   });
 });

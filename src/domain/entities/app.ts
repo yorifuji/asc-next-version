@@ -1,62 +1,78 @@
-interface AppParams {
-  id: string;
-  bundleId: string;
-  name: string;
-  sku: string;
-  primaryLocale: string;
+import type { ApiResource, AppAttributes } from '../../shared/types/api.js';
+
+// ===== Type Definitions =====
+
+type ApplicationApiResponse = ApiResource<AppAttributes>;
+
+export interface ApplicationData {
+  readonly id: string;
+  readonly bundleId: string;
+  readonly name: string;
+  readonly sku: string;
+  readonly primaryLocale: string;
 }
 
-interface ApiResponseData {
-  id: string;
-  attributes: {
-    bundleId: string;
-    name: string;
-    sku: string;
-    primaryLocale: string;
-  };
-}
+// ===== Domain Entity =====
 
-/**
- * Entity representing an App Store Connect app
- */
-export class App {
-  id: string;
-  bundleId: string;
-  name: string;
-  sku: string;
-  primaryLocale: string;
+export class Application {
+  private readonly _id: string;
+  private readonly _bundleId: string;
+  private readonly _name: string;
+  private readonly _sku: string;
+  private readonly _primaryLocale: string;
 
-  constructor({ id, bundleId, name, sku, primaryLocale }: AppParams) {
-    this.id = id;
-    this.bundleId = bundleId;
-    this.name = name;
-    this.sku = sku;
-    this.primaryLocale = primaryLocale;
+  constructor(data: ApplicationData) {
+    this._id = data.id;
+    this._bundleId = data.bundleId;
+    this._name = data.name;
+    this._sku = data.sku;
+    this._primaryLocale = data.primaryLocale;
+  }
+
+  // Getters for read-only access
+  get id(): string {
+    return this._id;
+  }
+
+  get bundleId(): string {
+    return this._bundleId;
+  }
+
+  get name(): string {
+    return this._name;
+  }
+
+  get sku(): string {
+    return this._sku;
+  }
+
+  get primaryLocale(): string {
+    return this._primaryLocale;
   }
 
   /**
-   * Convert to plain object
+   * Convert to plain object for serialization
    */
-  toObject(): AppParams {
+  toPlainObject(): ApplicationData {
     return {
-      id: this.id,
-      bundleId: this.bundleId,
-      name: this.name,
-      sku: this.sku,
-      primaryLocale: this.primaryLocale,
+      id: this._id,
+      bundleId: this._bundleId,
+      name: this._name,
+      sku: this._sku,
+      primaryLocale: this._primaryLocale,
     };
   }
 
   /**
-   * Create from API response
+   * Factory method to create from API response
    */
-  static fromApiResponse(data: ApiResponseData): App {
-    return new App({
-      id: data.id,
-      bundleId: data.attributes.bundleId,
-      name: data.attributes.name,
-      sku: data.attributes.sku,
-      primaryLocale: data.attributes.primaryLocale,
+  static createFromApiResponse(response: ApplicationApiResponse): Application {
+    return new Application({
+      id: response.id,
+      bundleId: response.attributes.bundleId,
+      name: response.attributes.name,
+      sku: response.attributes.sku,
+      primaryLocale: response.attributes.primaryLocale,
     });
   }
 }

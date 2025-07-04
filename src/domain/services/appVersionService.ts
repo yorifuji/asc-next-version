@@ -1,20 +1,22 @@
 import type { AppStoreConnectClient } from '../../infrastructure/api/appStoreConnectClient.js';
-import type { AppStoreVersion } from '../entities/appStoreVersion.js';
+import { AppStoreVersion } from '../entities/appStoreVersion.js';
 import { BuildNumber } from '../valueObjects/buildNumber.js';
-import { createBusinessLogicError, ERROR_CODES } from '../../shared/errors/customErrors.js';
+import {
+  APPLICATION_ERROR_CODES,
+  createBusinessLogicError,
+} from '../../shared/errors/customErrors.js';
 import { APP_STORE_STATES } from '../../shared/constants/index.js';
 
-/**
- * Domain service for app version operations
- */
+// ===== App Version Service =====
+
 export class AppVersionService {
   constructor(private appStoreClient: AppStoreConnectClient) {}
 
   /**
-   * Get the current live version
+   * Retrieve the current live (READY_FOR_SALE) version with its build number
    */
-  async getLiveVersion(appId: string): Promise<AppStoreVersion> {
-    const versions = await this.appStoreClient.getAppStoreVersions(appId, {
+  async fetchLiveVersion(appId: string): Promise<AppStoreVersion> {
+    const versions = await this.appStoreClient.fetchAppStoreVersions(appId, {
       state: APP_STORE_STATES.READY_FOR_SALE,
       limit: 10,
     });
@@ -22,7 +24,7 @@ export class AppVersionService {
     if (versions.length === 0) {
       throw createBusinessLogicError(
         'No live version found for app. This action requires a published app.',
-        ERROR_CODES.NO_LIVE_VERSION,
+        APPLICATION_ERROR_CODES.LIVE_VERSION_NOT_FOUND,
       );
     }
 
@@ -34,70 +36,95 @@ export class AppVersionService {
     if (readyForSaleVersions.length === 0) {
       throw createBusinessLogicError(
         'No live version found for app. This action requires a published app.',
-        ERROR_CODES.NO_LIVE_VERSION,
+        APPLICATION_ERROR_CODES.LIVE_VERSION_NOT_FOUND,
       );
     }
 
-    // Sort by version string descending (latest first)
-    readyForSaleVersions.sort((versionA, versionB) => versionB.version.compareTo(versionA.version));
+    // Sort by semantic version descending (latest first)
+    const sortedVersions = readyForSaleVersions.sort((versionA, versionB) =>
+      versionB.version.compareTo(versionA.version),
+    );
 
-    const liveVersion = readyForSaleVersions[0];
+    const liveVersion = sortedVersions[0];
     if (!liveVersion) {
       throw createBusinessLogicError(
         'No live version found after filtering',
-        ERROR_CODES.NO_LIVE_VERSION,
+        APPLICATION_ERROR_CODES.LIVE_VERSION_NOT_FOUND,
       );
     }
 
-    // Get build number for live version
-    const buildNumber = await this.appStoreClient.getBuildForVersion(liveVersion.id);
+    // Fetch associated build number
+    const buildNumber = await this._fetchVersionBuildNumber(liveVersion);
 
-    // READY_FOR_SALE version must have a build
-    if (buildNumber.getValue() === 0) {
-      throw createBusinessLogicError(
-        `READY_FOR_SALE version ${liveVersion.version} has no associated build. This indicates a data inconsistency in App Store Connect.`,
-        ERROR_CODES.DATA_INCONSISTENCY,
-      );
-    }
-
-    liveVersion.buildNumber = buildNumber;
-
-    return liveVersion;
+    // Return version with build number
+    return this._createVersionWithBuildNumber(liveVersion, buildNumber);
   }
 
   /**
-   * Find a specific version
+   * Search for a specific version by version string
    */
-  async findVersion(appId: string, version: string): Promise<AppStoreVersion | null> {
-    const versions = await this.appStoreClient.getAppStoreVersions(appId, {
-      version,
+  async findVersionByString(appId: string, versionString: string): Promise<AppStoreVersion | null> {
+    const versions = await this.appStoreClient.fetchAppStoreVersions(appId, {
+      version: versionString,
     });
 
     // Find exact version match
-    const exactMatch = versions.find((v) => v.version.toString() === version);
+    const exactMatch = versions.find((v) => v.version.toString() === versionString);
 
-    if (exactMatch) {
-      exactMatch.buildNumber = new BuildNumber(0);
-      return exactMatch;
-    }
-
-    return null;
+    return exactMatch ? this._createVersionWithBuildNumber(exactMatch, new BuildNumber(0)) : null;
   }
 
   /**
-   * Get the maximum build number from all uploaded builds
+   * Determine the highest build number across all uploaded builds
    */
-  async getMaxBuildNumber(appId: string, fallbackBuildNumber: BuildNumber): Promise<BuildNumber> {
-    const allBuilds = await this.appStoreClient.getBuilds(appId);
-    
+  async findMaximumBuildNumber(
+    appId: string,
+    defaultBuildNumber: BuildNumber,
+  ): Promise<BuildNumber> {
+    const allBuilds = await this.appStoreClient.fetchBuilds(appId);
+
     if (allBuilds.length === 0) {
-      return fallbackBuildNumber;
+      return defaultBuildNumber;
     }
 
-    const maxUploadedBuild = allBuilds.reduce((max, build) => {
-      return build.version.getValue() > max.getValue() ? build.version : max;
-    }, fallbackBuildNumber);
+    return allBuilds.reduce(
+      (max, build) => (build.version.isGreaterThan(max) ? build.version : max),
+      defaultBuildNumber,
+    );
+  }
 
-    return maxUploadedBuild;
+  /**
+   * Fetch build number for a specific version
+   */
+  private async _fetchVersionBuildNumber(version: AppStoreVersion): Promise<BuildNumber> {
+    const buildNumber = await this.appStoreClient.fetchBuildNumberForVersion(version.id);
+
+    // READY_FOR_SALE version must have a build
+    if (version.state === APP_STORE_STATES.READY_FOR_SALE && buildNumber.getValue() === 0) {
+      throw createBusinessLogicError(
+        `READY_FOR_SALE version ${version.version} has no associated build. ` +
+          'This indicates a data inconsistency in App Store Connect.',
+        APPLICATION_ERROR_CODES.INCONSISTENT_DATA_STATE,
+      );
+    }
+
+    return buildNumber;
+  }
+
+  /**
+   * Create a new AppStoreVersion instance with the specified build number
+   */
+  private _createVersionWithBuildNumber(
+    version: AppStoreVersion,
+    buildNumber: BuildNumber,
+  ): AppStoreVersion {
+    return new AppStoreVersion({
+      id: version.id,
+      version: version.version,
+      buildNumber,
+      state: version.state,
+      platform: version.platform,
+      createdDate: version.createdDate,
+    });
   }
 }

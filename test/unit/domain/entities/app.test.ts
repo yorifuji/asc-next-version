@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'vitest';
-import { App } from '../../../../src/domain/entities/app.js';
+import { Application } from '../../../../src/domain/entities/app.js';
 import type { ApiResource, AppAttributes } from '../../../../src/shared/types/api.js';
 
-describe('App', () => {
+describe('Application', () => {
   const createMockApiResource = (
     overrides?: Partial<AppAttributes>,
   ): ApiResource<AppAttributes> => ({
@@ -18,8 +18,8 @@ describe('App', () => {
   });
 
   describe('constructor', () => {
-    test('creates an App instance with valid data', () => {
-      const app = new App({
+    test('creates an Application instance with valid data', () => {
+      const app = new Application({
         id: 'test-id',
         bundleId: 'com.example.app',
         name: 'Test App',
@@ -35,10 +35,10 @@ describe('App', () => {
     });
   });
 
-  describe('fromApiResponse', () => {
-    test('creates an App from API response', () => {
+  describe('createFromApiResponse', () => {
+    test('creates an Application from API response', () => {
       const apiResponse = createMockApiResource();
-      const app = App.fromApiResponse(apiResponse);
+      const app = Application.createFromApiResponse(apiResponse);
 
       expect(app.id).toBe('test-app-id');
       expect(app.bundleId).toBe('com.example.app');
@@ -54,16 +54,16 @@ describe('App', () => {
         sku: '',
         primaryLocale: '',
       });
-      const app = App.fromApiResponse(apiResponse);
+      const app = Application.createFromApiResponse(apiResponse);
 
       expect(app.sku).toBe('');
       expect(app.primaryLocale).toBe('');
     });
   });
 
-  describe('toObject', () => {
-    test('converts App to plain object', () => {
-      const app = new App({
+  describe('toPlainObject', () => {
+    test('converts Application to plain object', () => {
+      const app = new Application({
         id: 'test-id',
         bundleId: 'com.example.app',
         name: 'Test App',
@@ -71,7 +71,7 @@ describe('App', () => {
         primaryLocale: 'en-US',
       });
 
-      const obj = app.toObject();
+      const obj = app.toPlainObject();
 
       expect(obj).toEqual({
         id: 'test-id',

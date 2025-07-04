@@ -1,72 +1,97 @@
 import jwt from 'jsonwebtoken';
-import { JWT_CONFIG } from '../../shared/constants/index.js';
+import { JWT_AUTHENTICATION } from '../../shared/constants/index.js';
 import {
-  AppStoreConnectError,
+  APPLICATION_ERROR_CODES,
+  ApplicationError,
   createValidationError,
-  ERROR_CODES,
 } from '../../shared/errors/customErrors.js';
-import type { ErrorWithDetails } from '../../shared/types/api.js';
 
-/**
- * JWT generator for App Store Connect API authentication
- */
-export class JwtGenerator {
-  private issuerId: string;
-  private keyId: string;
-  private privateKey: string;
+// ===== JWT Authentication Service =====
 
-  constructor(issuerId: string, keyId: string, privateKey: string) {
-    this._validateInputs(issuerId, keyId, privateKey);
-    this.issuerId = issuerId;
-    this.keyId = keyId;
-    this.privateKey = this._formatPrivateKey(privateKey);
+const TOKEN_EXPIRY_WARNING_MINUTES = 5;
+
+export class AppStoreConnectJwtService {
+  private readonly _issuerId: string;
+  private readonly _keyId: string;
+  private readonly _privateKey: string;
+
+  constructor(config: { issuerId: string; keyId: string; privateKey: string }) {
+    this._validateConfiguration(config);
+    this._issuerId = config.issuerId;
+    this._keyId = config.keyId;
+    this._privateKey = this._normalizePrivateKey(config.privateKey);
   }
 
   /**
-   * Generate a JWT token
-   * @returns {string} JWT token
+   * Generate a new authentication token
    */
-  generateToken(): string {
+  generateAuthToken(): string {
     try {
+      const now = Math.floor(Date.now() / 1000);
+      const expiration = now + JWT_AUTHENTICATION.EXPIRATION_SECONDS;
+
       const payload = {
-        iss: this.issuerId,
-        exp: Math.floor(Date.now() / 1000) + JWT_CONFIG.EXPIRATION_TIME,
-        aud: JWT_CONFIG.AUDIENCE,
+        iss: this._issuerId,
+        exp: expiration,
+        aud: JWT_AUTHENTICATION.AUDIENCE,
       };
 
-      const options: jwt.SignOptions = {
-        algorithm: JWT_CONFIG.ALGORITHM,
+      const signingOptions: jwt.SignOptions = {
+        algorithm: JWT_AUTHENTICATION.ALGORITHM,
         header: {
-          alg: JWT_CONFIG.ALGORITHM,
-          kid: this.keyId,
+          alg: JWT_AUTHENTICATION.ALGORITHM,
+          kid: this._keyId,
           typ: 'JWT',
         },
       };
 
-      return jwt.sign(payload, this.privateKey, options);
+      return jwt.sign(payload, this._privateKey, signingOptions);
     } catch (error) {
-      const err = error as ErrorWithDetails;
-      throw new AppStoreConnectError(
-        `Failed to generate JWT token: ${err.message}`,
-        ERROR_CODES.AUTHENTICATION_ERROR,
-        { reason: 'JWT_GENERATION_FAILED' },
-      );
+      throw this._createAuthenticationError(error);
     }
   }
 
   /**
-   * Validate inputs
+   * Check if token is expiring soon
    */
-  private _validateInputs(issuerId: string, keyId: string, privateKey: string): void {
-    if (!issuerId || typeof issuerId !== 'string') {
-      throw createValidationError('Issuer ID must be a non-empty string', 'issuerId', issuerId);
+  isTokenExpiringSoon(token: string): boolean {
+    try {
+      const decoded = jwt.decode(token) as jwt.JwtPayload | null;
+      if (!decoded || typeof decoded.exp !== 'number') {
+        return true;
+      }
+
+      const expirationTimeMs = decoded.exp * 1000;
+      const warningThresholdMs = Date.now() + TOKEN_EXPIRY_WARNING_MINUTES * 60 * 1000;
+
+      return expirationTimeMs <= warningThresholdMs;
+    } catch {
+      // Treat decode failures as expiring
+      return true;
+    }
+  }
+
+  /**
+   * Validate configuration parameters
+   */
+  private _validateConfiguration(config: {
+    issuerId: string;
+    keyId: string;
+    privateKey: string;
+  }): void {
+    if (!config.issuerId || typeof config.issuerId !== 'string') {
+      throw createValidationError(
+        'Issuer ID must be a non-empty string',
+        'issuerId',
+        config.issuerId,
+      );
     }
 
-    if (!keyId || typeof keyId !== 'string') {
-      throw createValidationError('Key ID must be a non-empty string', 'keyId', keyId);
+    if (!config.keyId || typeof config.keyId !== 'string') {
+      throw createValidationError('Key ID must be a non-empty string', 'keyId', config.keyId);
     }
 
-    if (!privateKey || typeof privateKey !== 'string') {
+    if (!config.privateKey || typeof config.privateKey !== 'string') {
       throw createValidationError(
         'Private key must be a non-empty string',
         'privateKey',
@@ -76,32 +101,35 @@ export class JwtGenerator {
   }
 
   /**
-   * Format private key to ensure proper format
+   * Normalize private key format
    */
-  private _formatPrivateKey(key: string): string {
-    // Remove any whitespace and newlines
-    const cleanKey = key.trim();
+  private _normalizePrivateKey(key: string): string {
+    const trimmedKey = key.trim();
+    const pemHeader = '-----BEGIN PRIVATE KEY-----';
+    const pemFooter = '-----END PRIVATE KEY-----';
 
-    // Check if key already has headers
-    if (cleanKey.includes('-----BEGIN PRIVATE KEY-----')) {
-      return cleanKey;
+    // Already in PEM format
+    if (trimmedKey.includes(pemHeader)) {
+      return trimmedKey;
     }
 
-    // Add headers if missing
-    return `-----BEGIN PRIVATE KEY-----\n${cleanKey}\n-----END PRIVATE KEY-----`;
+    // Add PEM wrapper
+    return `${pemHeader}\n${trimmedKey}\n${pemFooter}`;
   }
 
   /**
-   * Check if token is about to expire (within 5 minutes)
+   * Create authentication error with details
    */
-  isTokenExpiringSoon(token: string): boolean {
-    try {
-      const decoded = jwt.decode(token) as jwt.JwtPayload;
-      const expirationTime = decoded.exp! * 1000;
-      const fiveMinutesFromNow = Date.now() + 5 * 60 * 1000;
-      return expirationTime <= fiveMinutesFromNow;
-    } catch {
-      return true; // Consider expired if can't decode
-    }
+  private _createAuthenticationError(error: unknown): ApplicationError {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+    return new ApplicationError(
+      `Failed to generate JWT token: ${errorMessage}`,
+      APPLICATION_ERROR_CODES.AUTHENTICATION_FAILED,
+      { reason: 'JWT_GENERATION_FAILED' },
+    );
   }
 }
+
+// Backward compatibility alias
+export { AppStoreConnectJwtService as JwtGenerator };

@@ -1,8 +1,12 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
-import { JwtGenerator } from '../../src/infrastructure/auth/jwtGenerator.js';
-import { AppStoreConnectClient } from '../../src/infrastructure/api/appStoreConnectClient.js';
-import { DetermineNextVersionUseCase } from '../../src/usecases/determineNextVersionUseCase.js';
-import { APP_STORE_STATES, PLATFORMS, VERSION_ACTIONS } from '../../src/shared/constants/index.js';
+import { AppStoreConnectJwtService } from '../../src/infrastructure/auth/jwtGenerator.js';
+import { AppStoreConnectApiClient } from '../../src/infrastructure/api/appStoreConnectClient.js';
+import { NextVersionDeterminationUseCase } from '../../src/usecases/determineNextVersionUseCase.js';
+import {
+  APP_STORE_STATES,
+  PLATFORM_TYPES,
+  VERSION_ACTION_TYPES,
+} from '../../src/shared/constants/index.js';
 import axios from 'axios';
 import jwt from 'jsonwebtoken';
 
@@ -12,9 +16,9 @@ vi.mock('jsonwebtoken');
 
 describe('DetermineNextVersion Integration Test', () => {
   let mockHttpClient: any;
-  let jwtGenerator: JwtGenerator;
-  let appStoreClient: AppStoreConnectClient;
-  let useCase: DetermineNextVersionUseCase;
+  let jwtService: AppStoreConnectJwtService;
+  let apiClient: AppStoreConnectApiClient;
+  let useCase: NextVersionDeterminationUseCase;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -39,9 +43,13 @@ describe('DetermineNextVersion Integration Test', () => {
     vi.mocked(axios.create).mockReturnValue(mockHttpClient);
 
     // Setup services
-    jwtGenerator = new JwtGenerator('issuer-123', 'key-123', 'fake-private-key');
-    appStoreClient = new AppStoreConnectClient(jwtGenerator);
-    useCase = new DetermineNextVersionUseCase(appStoreClient);
+    jwtService = new AppStoreConnectJwtService({
+      issuerId: 'issuer-123',
+      keyId: 'key-123',
+      privateKey: 'fake-private-key',
+    });
+    apiClient = new AppStoreConnectApiClient({ jwtGenerator: jwtService });
+    useCase = new NextVersionDeterminationUseCase({ appStoreConnectClient: apiClient });
   });
 
   describe('新しいバージョンを作成するシナリオ', () => {
@@ -75,7 +83,7 @@ describe('DetermineNextVersion Integration Test', () => {
                 attributes: {
                   versionString: '1.0.0',
                   appStoreState: APP_STORE_STATES.READY_FOR_SALE,
-                  platform: PLATFORMS.IOS,
+                  platform: PLATFORM_TYPES.IOS,
                   createdDate: '2024-01-01',
                 },
               },
@@ -122,7 +130,7 @@ describe('DetermineNextVersion Integration Test', () => {
             attributes: {
               versionString: '1.0.1',
               appStoreState: APP_STORE_STATES.PREPARE_FOR_SUBMISSION,
-              platform: PLATFORMS.IOS,
+              platform: PLATFORM_TYPES.IOS,
               createdDate: '2024-01-02',
             },
           },
@@ -130,9 +138,9 @@ describe('DetermineNextVersion Integration Test', () => {
       });
 
       // Execute
-      const result = await useCase.execute({
+      const result = await useCase.determineNextVersion({
         bundleId,
-        platform: PLATFORMS.IOS,
+        platform: PLATFORM_TYPES.IOS,
         createNewVersion: true,
       });
 
@@ -146,7 +154,7 @@ describe('DetermineNextVersion Integration Test', () => {
         liveBuildNumber: 5,
         version: '1.0.1',
         buildNumber: '6',
-        action: VERSION_ACTIONS.NEW_VERSION,
+        action: VERSION_ACTION_TYPES.CREATE_NEW_VERSION,
         versionCreated: true,
       });
     });
@@ -244,9 +252,9 @@ describe('DetermineNextVersion Integration Test', () => {
         });
 
       // Execute
-      const result = await useCase.execute({
+      const result = await useCase.determineNextVersion({
         bundleId,
-        platform: PLATFORMS.IOS,
+        platform: PLATFORM_TYPES.IOS,
         createNewVersion: false,
       });
 
@@ -254,7 +262,7 @@ describe('DetermineNextVersion Integration Test', () => {
       expect(result).toMatchObject({
         version: '1.0.1',
         buildNumber: '8',
-        action: VERSION_ACTIONS.INCREMENT_BUILD,
+        action: VERSION_ACTION_TYPES.INCREMENT_BUILD_NUMBER,
         versionCreated: false,
       });
     });
@@ -338,9 +346,9 @@ describe('DetermineNextVersion Integration Test', () => {
         });
 
       // Execute
-      const result = await useCase.execute({
+      const result = await useCase.determineNextVersion({
         bundleId,
-        platform: PLATFORMS.IOS,
+        platform: PLATFORM_TYPES.IOS,
         createNewVersion: false,
       });
 
@@ -348,7 +356,7 @@ describe('DetermineNextVersion Integration Test', () => {
       expect(result).toMatchObject({
         version: '1.0.1',
         buildNumber: '6',
-        action: VERSION_ACTIONS.INCREMENT_BUILD,
+        action: VERSION_ACTION_TYPES.INCREMENT_BUILD_NUMBER,
         versionCreated: false,
       });
     });
@@ -439,9 +447,9 @@ describe('DetermineNextVersion Integration Test', () => {
 
       // Execute and expect error
       await expect(
-        useCase.execute({
+        useCase.determineNextVersion({
           bundleId,
-          platform: PLATFORMS.IOS,
+          platform: PLATFORM_TYPES.IOS,
           createNewVersion: false,
         }),
       ).rejects.toThrow(
@@ -533,13 +541,13 @@ describe('DetermineNextVersion Integration Test', () => {
 
       // Execute and expect error
       await expect(
-        useCase.execute({
+        useCase.determineNextVersion({
           bundleId,
-          platform: PLATFORMS.IOS,
+          platform: PLATFORM_TYPES.IOS,
           createNewVersion: false,
         }),
       ).rejects.toThrow(
-        'Cannot add builds to version 1.0.1: This version is pending contract agreement',
+        'Cannot add builds to version 1.0.1: This version requires contract agreement. Resolve in App Store Connect or create a new version.',
       );
     });
   });
@@ -631,9 +639,9 @@ describe('DetermineNextVersion Integration Test', () => {
       });
 
     // Execute
-    const result = await useCase.execute({
+    const result = await useCase.determineNextVersion({
       bundleId,
-      platform: PLATFORMS.IOS,
+      platform: PLATFORM_TYPES.IOS,
       createNewVersion: false,
     });
 
@@ -641,7 +649,7 @@ describe('DetermineNextVersion Integration Test', () => {
     expect(result).toMatchObject({
       version: '1.0.1',
       buildNumber: '91',
-      action: VERSION_ACTIONS.INCREMENT_BUILD,
+      action: VERSION_ACTION_TYPES.INCREMENT_BUILD_NUMBER,
       versionCreated: false,
     });
   });
@@ -655,9 +663,9 @@ describe('DetermineNextVersion Integration Test', () => {
       });
 
       await expect(
-        useCase.execute({
+        useCase.determineNextVersion({
           bundleId: 'com.notfound.app',
-          platform: PLATFORMS.IOS,
+          platform: PLATFORM_TYPES.IOS,
           createNewVersion: false,
         }),
       ).rejects.toThrow('No app found with bundle ID: com.notfound.app');
@@ -686,9 +694,9 @@ describe('DetermineNextVersion Integration Test', () => {
         });
 
       await expect(
-        useCase.execute({
+        useCase.determineNextVersion({
           bundleId: 'com.example.app',
-          platform: PLATFORMS.IOS,
+          platform: PLATFORM_TYPES.IOS,
           createNewVersion: false,
         }),
       ).rejects.toThrow('No live version found for app');
@@ -731,9 +739,9 @@ describe('DetermineNextVersion Integration Test', () => {
         });
 
       await expect(
-        useCase.execute({
+        useCase.determineNextVersion({
           bundleId: 'com.example.app',
-          platform: PLATFORMS.IOS,
+          platform: PLATFORM_TYPES.IOS,
           createNewVersion: false,
         }),
       ).rejects.toThrow('READY_FOR_SALE version 1.0.0 has no associated build');
@@ -834,9 +842,9 @@ describe('DetermineNextVersion Integration Test', () => {
       });
 
       // Execute
-      const result = await useCase.execute({
+      const result = await useCase.determineNextVersion({
         bundleId,
-        platform: PLATFORMS.IOS,
+        platform: PLATFORM_TYPES.IOS,
         createNewVersion: true,
       });
 
@@ -846,7 +854,7 @@ describe('DetermineNextVersion Integration Test', () => {
         liveBuildNumber: 86,
         version: '1.0.25',
         buildNumber: '87',
-        action: VERSION_ACTIONS.NEW_VERSION,
+        action: VERSION_ACTION_TYPES.CREATE_NEW_VERSION,
         versionCreated: true,
       });
     });

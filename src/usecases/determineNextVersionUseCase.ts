@@ -1,15 +1,16 @@
 import type { BuildNumber } from '../domain/valueObjects/buildNumber.js';
 import type { Version } from '../domain/valueObjects/version.js';
 import { VersionCalculator } from '../domain/services/versionCalculator.js';
+import type { VersionActionResult } from '../domain/services/versionCalculator.js';
 import { AppVersionService } from '../domain/services/appVersionService.js';
-import { VERSION_ACTIONS } from '../shared/constants/index.js';
-import type { Platform } from '../shared/constants/index.js';
+import { VERSION_ACTION_TYPES } from '../shared/constants/index.js';
+import type { PlatformType } from '../shared/constants/index.js';
 import type { AppStoreConnectClient } from '../infrastructure/api/appStoreConnectClient.js';
-import type { AppStoreVersion } from '../domain/entities/appStoreVersion.js';
+import { AppStoreVersion } from '../domain/entities/appStoreVersion.js';
 
 interface ExecuteParams {
   bundleId: string;
-  platform: Platform;
+  platform: PlatformType;
   createNewVersion?: boolean;
 }
 
@@ -29,19 +30,14 @@ interface ExecuteResult {
   versionCreated: boolean;
 }
 
-interface ActionResult {
-  action: string;
-  buildNumber?: BuildNumber;
-}
-
 /**
  * Use case for determining the next version and build number
  */
-export class DetermineNextVersionUseCase {
+export class NextVersionDeterminationUseCase {
   private appStoreClient: AppStoreConnectClient;
   private appVersionService: AppVersionService;
 
-  constructor(appStoreConnectClient: AppStoreConnectClient) {
+  constructor({ appStoreConnectClient }: { appStoreConnectClient: AppStoreConnectClient }) {
     this.appStoreClient = appStoreConnectClient;
     this.appVersionService = new AppVersionService(appStoreConnectClient);
   }
@@ -49,38 +45,38 @@ export class DetermineNextVersionUseCase {
   /**
    * Execute the use case
    */
-  async execute({
+  async determineNextVersion({
     bundleId,
     platform,
     createNewVersion = false,
   }: ExecuteParams): Promise<ExecuteResult> {
     // Step 1: Find the app
     console.info('[Step 1] Finding app...');
-    const app = await this.appStoreClient.findApp(bundleId);
+    const app = await this.appStoreClient.findApplicationByBundleId(bundleId);
     console.info(`  └─ Found: ${app.name} (ID: ${app.id})`);
 
     // Step 2: Get the live version with build number
     console.info('\n[Step 2] Getting live version...');
-    const liveVersion = await this.appVersionService.getLiveVersion(app.id);
+    const liveVersion = await this.appVersionService.fetchLiveVersion(app.id);
     console.info(
       `  └─ Live version: ${liveVersion.version} (Build ${liveVersion.buildNumber.getValue()})`,
     );
 
     // Step 3: Calculate the next version
     console.info('\n[Step 3] Calculating next version...');
-    const nextVersion = VersionCalculator.calculateNextVersion(liveVersion.version);
+    const nextVersion = VersionCalculator.calculateNextSemanticVersion(liveVersion.version);
     console.info(`  └─ Next version: ${nextVersion}`);
 
-    // Step 4: Check if the next version already exists
+    // Step 4: Check for existing next version
     console.info('\n[Step 4] Checking if version exists...');
-    const existingNextVersion = await this.appVersionService.findVersion(
+    const existingNextVersion = await this.appVersionService.findVersionByString(
       app.id,
       nextVersion.toString(),
     );
 
-    // Step 5: Get the maximum build number from all uploaded builds
+    // Step 5: Determine maximum build number
     console.info('\n[Step 5] Analyzing recent builds...');
-    const maxUploadedBuild = await this.appVersionService.getMaxBuildNumber(
+    const maxUploadedBuild = await this.appVersionService.findMaximumBuildNumber(
       app.id,
       liveVersion.buildNumber,
     );
@@ -96,7 +92,7 @@ export class DetermineNextVersionUseCase {
 
     // Step 7: Create new version if needed
     let versionCreated = false;
-    if (actionResult.action === VERSION_ACTIONS.NEW_VERSION && createNewVersion) {
+    if (actionResult.action === VERSION_ACTION_TYPES.CREATE_NEW_VERSION && createNewVersion) {
       console.info('\n[Step 7] Creating new version...');
       await this._createNewVersion(app.id, nextVersion, platform);
       versionCreated = true;
@@ -105,7 +101,7 @@ export class DetermineNextVersionUseCase {
 
     // Step 8: Return results
     return {
-      app: app.toObject(),
+      app: app.toPlainObject(),
       liveVersion: liveVersion.version.toString(),
       liveBuildNumber: liveVersion.buildNumber.getValue(),
       version: nextVersion.toString(),
@@ -121,14 +117,24 @@ export class DetermineNextVersionUseCase {
   private async _determineActionWithBuildNumber(
     existingVersion: AppStoreVersion | null,
     currentMaxBuild: BuildNumber,
-  ): Promise<ActionResult> {
+  ): Promise<VersionActionResult> {
     // If version exists, get its build number first
     if (existingVersion) {
       console.info(
         `  └─ Found version ${existingVersion.version} in state: ${existingVersion.state}`,
       );
-      const existingBuildNumber = await this.appStoreClient.getBuildForVersion(existingVersion.id);
-      existingVersion.buildNumber = existingBuildNumber;
+      const existingBuildNumber = await this.appStoreClient.fetchBuildNumberForVersion(
+        existingVersion.id,
+      );
+      // Create a new AppStoreVersion instance with the build number
+      existingVersion = new AppStoreVersion({
+        id: existingVersion.id,
+        version: existingVersion.version,
+        buildNumber: existingBuildNumber,
+        state: existingVersion.state,
+        platform: existingVersion.platform,
+        createdDate: existingVersion.createdDate,
+      });
       if (existingBuildNumber.getValue() === 0) {
         console.info(`  └─ Version ${existingVersion.version} has no associated builds`);
       } else {
@@ -141,7 +147,7 @@ export class DetermineNextVersionUseCase {
     }
 
     // Now determine action with the correct build number information
-    const result = VersionCalculator.determineAction(existingVersion, currentMaxBuild);
+    const result = VersionCalculator.determineVersionAction(existingVersion, currentMaxBuild);
 
     if (result.buildNumber) {
       console.info(
@@ -150,10 +156,7 @@ export class DetermineNextVersionUseCase {
     }
     console.info(`  └─ Action: ${result.action.toUpperCase()}`);
 
-    return {
-      action: result.action,
-      buildNumber: result.buildNumber || undefined,
-    };
+    return result;
   }
 
   /**
@@ -162,8 +165,8 @@ export class DetermineNextVersionUseCase {
   private async _createNewVersion(
     appId: string,
     version: Version,
-    platform: Platform,
+    platform: PlatformType,
   ): Promise<AppStoreVersion> {
-    return await this.appStoreClient.createAppStoreVersion(appId, version, platform);
+    return await this.appStoreClient.createNewAppStoreVersion(appId, version, platform);
   }
 }

@@ -12,53 +12,81 @@ describe('JwtGenerator', () => {
   describe('constructor', () => {
     test('creates instance with valid inputs', () => {
       expect(() => {
-        new JwtGenerator(validIssuerId, validKeyId, validPrivateKey);
+        new JwtGenerator({
+          issuerId: validIssuerId,
+          keyId: validKeyId,
+          privateKey: validPrivateKey,
+        });
       }).not.toThrow();
     });
 
     test('throws error for empty issuer ID', () => {
       expect(() => {
-        new JwtGenerator('', validKeyId, validPrivateKey);
+        new JwtGenerator({
+          issuerId: '',
+          keyId: validKeyId,
+          privateKey: validPrivateKey,
+        });
       }).toThrow('Issuer ID must be a non-empty string');
     });
 
     test('throws error for empty key ID', () => {
       expect(() => {
-        new JwtGenerator(validIssuerId, '', validPrivateKey);
+        new JwtGenerator({
+          issuerId: validIssuerId,
+          keyId: '',
+          privateKey: validPrivateKey,
+        });
       }).toThrow('Key ID must be a non-empty string');
     });
 
     test('throws error for empty private key', () => {
       expect(() => {
-        new JwtGenerator(validIssuerId, validKeyId, '');
+        new JwtGenerator({
+          issuerId: validIssuerId,
+          keyId: validKeyId,
+          privateKey: '',
+        });
       }).toThrow('Private key must be a non-empty string');
     });
 
     test('formats private key without headers', () => {
       const keyWithoutHeaders = 'test-key';
-      const generator = new JwtGenerator(validIssuerId, validKeyId, keyWithoutHeaders);
+      const generator = new JwtGenerator({
+        issuerId: validIssuerId,
+        keyId: validKeyId,
+        privateKey: keyWithoutHeaders,
+      });
 
       // Private property access for testing
-      expect((generator as any).privateKey).toBe(
+      expect((generator as any)._privateKey).toBe(
         '-----BEGIN PRIVATE KEY-----\ntest-key\n-----END PRIVATE KEY-----',
       );
     });
 
     test('preserves private key with headers', () => {
-      const generator = new JwtGenerator(validIssuerId, validKeyId, validPrivateKey);
+      const generator = new JwtGenerator({
+        issuerId: validIssuerId,
+        keyId: validKeyId,
+        privateKey: validPrivateKey,
+      });
 
       // Private property access for testing
-      expect((generator as any).privateKey).toBe(validPrivateKey);
+      expect((generator as any)._privateKey).toBe(validPrivateKey);
     });
   });
 
-  describe('generateToken', () => {
+  describe('generateAuthToken', () => {
     test('generates JWT token successfully', () => {
       const mockToken = 'mock.jwt.token';
       vi.mocked(jwt.sign).mockReturnValue(mockToken as any);
 
-      const generator = new JwtGenerator(validIssuerId, validKeyId, validPrivateKey);
-      const token = generator.generateToken();
+      const generator = new JwtGenerator({
+        issuerId: validIssuerId,
+        keyId: validKeyId,
+        privateKey: validPrivateKey,
+      });
+      const token = generator.generateAuthToken();
 
       expect(token).toBe(mockToken);
       expect(jwt.sign).toHaveBeenCalledWith(
@@ -84,9 +112,13 @@ describe('JwtGenerator', () => {
         throw new Error('JWT signing failed');
       });
 
-      const generator = new JwtGenerator(validIssuerId, validKeyId, validPrivateKey);
+      const generator = new JwtGenerator({
+        issuerId: validIssuerId,
+        keyId: validKeyId,
+        privateKey: validPrivateKey,
+      });
 
-      expect(() => generator.generateToken()).toThrow('Failed to generate JWT token');
+      expect(() => generator.generateAuthToken()).toThrow('Failed to generate JWT token');
     });
   });
 
@@ -95,7 +127,11 @@ describe('JwtGenerator', () => {
       const futureExp = Math.floor(Date.now() / 1000) + 600; // 10 minutes from now
       vi.mocked(jwt.decode).mockReturnValue({ exp: futureExp } as any);
 
-      const generator = new JwtGenerator(validIssuerId, validKeyId, validPrivateKey);
+      const generator = new JwtGenerator({
+        issuerId: validIssuerId,
+        keyId: validKeyId,
+        privateKey: validPrivateKey,
+      });
       const result = generator.isTokenExpiringSoon('some.token');
 
       expect(result).toBe(false);
@@ -105,7 +141,11 @@ describe('JwtGenerator', () => {
       const soonExp = Math.floor(Date.now() / 1000) + 240; // 4 minutes from now
       vi.mocked(jwt.decode).mockReturnValue({ exp: soonExp } as any);
 
-      const generator = new JwtGenerator(validIssuerId, validKeyId, validPrivateKey);
+      const generator = new JwtGenerator({
+        issuerId: validIssuerId,
+        keyId: validKeyId,
+        privateKey: validPrivateKey,
+      });
       const result = generator.isTokenExpiringSoon('some.token');
 
       expect(result).toBe(true);
@@ -115,7 +155,11 @@ describe('JwtGenerator', () => {
       const pastExp = Math.floor(Date.now() / 1000) - 60; // 1 minute ago
       vi.mocked(jwt.decode).mockReturnValue({ exp: pastExp } as any);
 
-      const generator = new JwtGenerator(validIssuerId, validKeyId, validPrivateKey);
+      const generator = new JwtGenerator({
+        issuerId: validIssuerId,
+        keyId: validKeyId,
+        privateKey: validPrivateKey,
+      });
       const result = generator.isTokenExpiringSoon('some.token');
 
       expect(result).toBe(true);
@@ -126,7 +170,11 @@ describe('JwtGenerator', () => {
         throw new Error('Invalid token');
       });
 
-      const generator = new JwtGenerator(validIssuerId, validKeyId, validPrivateKey);
+      const generator = new JwtGenerator({
+        issuerId: validIssuerId,
+        keyId: validKeyId,
+        privateKey: validPrivateKey,
+      });
       const result = generator.isTokenExpiringSoon('invalid.token');
 
       expect(result).toBe(true);

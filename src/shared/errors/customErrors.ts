@@ -1,9 +1,9 @@
-import type { ErrorDetails } from '../types/api.js';
+import type { ApiErrorResponse, ErrorDetails } from '../types/api.js';
 
 /**
  * Error codes used throughout the application
  */
-export const ERROR_CODES = {
+export const APPLICATION_ERROR_CODES = {
   // Validation errors
   VALIDATION_ERROR: 'VALIDATION_ERROR',
 
@@ -11,27 +11,28 @@ export const ERROR_CODES = {
   API_ERROR: 'API_ERROR',
 
   // Business logic errors
-  NO_LIVE_VERSION: 'NO_LIVE_VERSION',
-  DATA_INCONSISTENCY: 'DATA_INCONSISTENCY',
-  VERSION_NOT_INCREMENTABLE: 'VERSION_NOT_INCREMENTABLE',
+  LIVE_VERSION_NOT_FOUND: 'LIVE_VERSION_NOT_FOUND',
+  INCONSISTENT_DATA_STATE: 'INCONSISTENT_DATA_STATE',
+  VERSION_INCREMENT_NOT_ALLOWED: 'VERSION_INCREMENT_NOT_ALLOWED',
 
   // Authentication errors
-  AUTHENTICATION_ERROR: 'AUTHENTICATION_ERROR',
+  AUTHENTICATION_FAILED: 'AUTHENTICATION_FAILED',
 } as const;
 
-export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];
+export type ApplicationErrorCode =
+  (typeof APPLICATION_ERROR_CODES)[keyof typeof APPLICATION_ERROR_CODES];
 
 /**
- * Base error class for App Store Connect errors
+ * Base error class for application errors
  */
-export class AppStoreConnectError extends Error {
-  code: ErrorCode;
+export class ApplicationError extends Error {
+  code: ApplicationErrorCode;
   details?: ErrorDetails;
   statusCode?: number;
 
-  constructor(message: string, code: ErrorCode, details?: ErrorDetails) {
+  constructor(message: string, code: ApplicationErrorCode, details?: ErrorDetails) {
     super(message);
-    this.name = 'AppStoreConnectError';
+    this.name = 'ApplicationError';
     this.code = code;
     this.details = details;
     Error.captureStackTrace(this, this.constructor);
@@ -45,8 +46,14 @@ export function createValidationError(
   message: string,
   field: string,
   value: unknown,
-): AppStoreConnectError {
-  return new AppStoreConnectError(message, ERROR_CODES.VALIDATION_ERROR, { field, value });
+): ApplicationError {
+  return new ApplicationError(message, APPLICATION_ERROR_CODES.VALIDATION_ERROR, {
+    field,
+    value:
+      typeof value === 'object'
+        ? JSON.stringify(value)
+        : (value as string | number | boolean | null),
+  });
 }
 
 /**
@@ -56,8 +63,11 @@ export function createApiError(
   message: string,
   statusCode: number,
   response?: unknown,
-): AppStoreConnectError {
-  const error = new AppStoreConnectError(message, ERROR_CODES.API_ERROR, { statusCode, response });
+): ApplicationError {
+  const error = new ApplicationError(message, APPLICATION_ERROR_CODES.API_ERROR, {
+    statusCode,
+    response: response as ApiErrorResponse | Record<string, unknown> | undefined,
+  });
   error.statusCode = statusCode;
   return error;
 }
@@ -67,8 +77,8 @@ export function createApiError(
  */
 export function createBusinessLogicError(
   message: string,
-  code: ErrorCode,
+  code: ApplicationErrorCode,
   reason?: string,
-): AppStoreConnectError {
-  return new AppStoreConnectError(message, code, { reason });
+): ApplicationError {
+  return new ApplicationError(message, code, { reason });
 }

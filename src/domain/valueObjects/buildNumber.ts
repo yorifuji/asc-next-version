@@ -1,27 +1,54 @@
 import { createValidationError } from '../../shared/errors/customErrors.js';
 
-/**
- * Value object representing a build number
- */
-export class BuildNumber {
+// ===== Build Number Value Object =====
+
+const BUILD_NUMBER_PATTERN = /^\d+$/;
+const MIN_BUILD_NUMBER = 0;
+
+export class ApplicationBuildNumber {
   private readonly _value: number;
 
   constructor(value: string | number) {
-    let parsedValue = value;
+    this._value = this._validateAndParse(value);
+  }
 
+  private _validateAndParse(value: string | number): number {
+    // Handle string input
     if (typeof value === 'string') {
-      // Check if string contains only digits
-      if (!/^\d+$/.test(value)) {
+      if (!BUILD_NUMBER_PATTERN.test(value)) {
         throw createValidationError(
-          'Build number must be a non-negative integer',
+          `Build number must contain only digits: "${value}"`,
           'buildNumber',
           value,
         );
       }
-      parsedValue = parseInt(value, 10);
+
+      const parsed = parseInt(value, 10);
+      if (isNaN(parsed)) {
+        throw createValidationError(
+          `Invalid build number format: "${value}"`,
+          'buildNumber',
+          value,
+        );
+      }
+
+      return this._validateNumber(parsed);
     }
 
-    if (typeof parsedValue !== 'number' || !Number.isInteger(parsedValue) || parsedValue < 0) {
+    // Handle number input
+    return this._validateNumber(value);
+  }
+
+  private _validateNumber(value: number): number {
+    if (!Number.isInteger(value)) {
+      throw createValidationError(
+        `Build number must be an integer: ${value}`,
+        'buildNumber',
+        value,
+      );
+    }
+
+    if (value < MIN_BUILD_NUMBER) {
       throw createValidationError(
         'Build number must be a non-negative integer',
         'buildNumber',
@@ -29,37 +56,35 @@ export class BuildNumber {
       );
     }
 
-    this._value = parsedValue as number;
+    return value;
   }
 
-  /**
-   * Get the build number value
-   */
   getValue(): number {
     return this._value;
   }
 
-  /**
-   * Get the build number as a string
-   */
   toString(): string {
-    return String(this._value);
+    return this._value.toString();
   }
 
   /**
-   * Create a new build number incremented by 1
+   * Create a new build number incremented by specified amount
    */
-  increment(): BuildNumber {
-    return new BuildNumber(this._value + 1);
+  increment(by: number = 1): ApplicationBuildNumber {
+    if (!Number.isInteger(by) || by < 1) {
+      throw createValidationError('Increment value must be a positive integer', 'incrementBy', by);
+    }
+    return new ApplicationBuildNumber(this._value + by);
   }
 
   /**
    * Compare with another build number
+   * Returns: negative if this < other, 0 if equal, positive if this > other
    */
-  compareTo(other: BuildNumber): number {
-    if (!(other instanceof BuildNumber)) {
+  compareTo(other: ApplicationBuildNumber): number {
+    if (!(other instanceof ApplicationBuildNumber)) {
       throw createValidationError(
-        'Can only compare with another BuildNumber instance',
+        'Can only compare with another ApplicationBuildNumber instance',
         'other',
         other,
       );
@@ -68,27 +93,34 @@ export class BuildNumber {
     return this._value - other._value;
   }
 
-  /**
-   * Check if build numbers are equal
-   */
-  equals(other: BuildNumber): boolean {
+  equals(other: ApplicationBuildNumber): boolean {
     return this.compareTo(other) === 0;
   }
 
-  /**
-   * Check if this build number is greater than another
-   */
-  isGreaterThan(other: BuildNumber): boolean {
+  isGreaterThan(other: ApplicationBuildNumber): boolean {
     return this.compareTo(other) > 0;
   }
 
+  isLessThan(other: ApplicationBuildNumber): boolean {
+    return this.compareTo(other) < 0;
+  }
+
   /**
-   * Create a BuildNumber from various input types
+   * Factory method to create from various input types
    */
-  static from(value: BuildNumber | string | number): BuildNumber {
-    if (value instanceof BuildNumber) {
+  static create(value: ApplicationBuildNumber | string | number): ApplicationBuildNumber {
+    if (value instanceof ApplicationBuildNumber) {
       return value;
     }
-    return new BuildNumber(value);
+    return new ApplicationBuildNumber(value);
   }
 }
+
+// Backward compatibility alias
+export { ApplicationBuildNumber as BuildNumber };
+
+// Add backward compatibility static methods to BuildNumber
+interface BuildNumberConstructor {
+  from(value: ApplicationBuildNumber | string | number): ApplicationBuildNumber;
+}
+(ApplicationBuildNumber as unknown as BuildNumberConstructor).from = ApplicationBuildNumber.create;

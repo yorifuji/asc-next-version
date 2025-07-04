@@ -1,82 +1,85 @@
-/**
- * App Store state constants
- */
+// ===== App Store States =====
+
 export const APP_STORE_STATES = {
-  READY_FOR_SALE: 'READY_FOR_SALE',
+  // Submission states
   PREPARE_FOR_SUBMISSION: 'PREPARE_FOR_SUBMISSION',
+  WAITING_FOR_REVIEW: 'WAITING_FOR_REVIEW',
+  IN_REVIEW: 'IN_REVIEW',
+  PENDING_DEVELOPER_RELEASE: 'PENDING_DEVELOPER_RELEASE',
+  PROCESSING_FOR_APP_STORE: 'PROCESSING_FOR_APP_STORE',
+
+  // Rejection states
   REJECTED: 'REJECTED',
   DEVELOPER_REJECTED: 'DEVELOPER_REJECTED',
   METADATA_REJECTED: 'METADATA_REJECTED',
-  WAITING_FOR_REVIEW: 'WAITING_FOR_REVIEW',
-  IN_REVIEW: 'IN_REVIEW',
-  DEVELOPER_REMOVED_FROM_SALE: 'DEVELOPER_REMOVED_FROM_SALE',
   INVALID_BINARY: 'INVALID_BINARY',
-  PENDING_DEVELOPER_RELEASE: 'PENDING_DEVELOPER_RELEASE',
+
+  // Live states
+  READY_FOR_SALE: 'READY_FOR_SALE',
+
+  // Other states
   ACCEPTED: 'ACCEPTED',
-  PROCESSING_FOR_APP_STORE: 'PROCESSING_FOR_APP_STORE',
+  DEVELOPER_REMOVED_FROM_SALE: 'DEVELOPER_REMOVED_FROM_SALE',
+  REMOVED_FROM_SALE: 'REMOVED_FROM_SALE',
+  REPLACED_WITH_NEW_VERSION: 'REPLACED_WITH_NEW_VERSION',
+
+  // Compliance states
   PENDING_CONTRACT: 'PENDING_CONTRACT',
   WAITING_FOR_EXPORT_COMPLIANCE: 'WAITING_FOR_EXPORT_COMPLIANCE',
   NOT_APPLICABLE_FOR_REVIEW: 'NOT_APPLICABLE_FOR_REVIEW',
-  REPLACED_WITH_NEW_VERSION: 'REPLACED_WITH_NEW_VERSION',
-  REMOVED_FROM_SALE: 'REMOVED_FROM_SALE',
 } as const;
 
 export type AppStoreState = (typeof APP_STORE_STATES)[keyof typeof APP_STORE_STATES];
 
-/**
- * States that allow build number increment
- */
-export const INCREMENTABLE_STATES: readonly AppStoreState[] = [
+export const BUILD_NUMBER_INCREMENTABLE_STATES: readonly AppStoreState[] = [
+  // Submission states
   APP_STORE_STATES.PREPARE_FOR_SUBMISSION,
+  APP_STORE_STATES.WAITING_FOR_REVIEW,
+  APP_STORE_STATES.IN_REVIEW,
+  APP_STORE_STATES.PENDING_DEVELOPER_RELEASE,
+
+  // Rejection states
   APP_STORE_STATES.REJECTED,
   APP_STORE_STATES.DEVELOPER_REJECTED,
   APP_STORE_STATES.METADATA_REJECTED,
-  APP_STORE_STATES.WAITING_FOR_REVIEW,
-  APP_STORE_STATES.IN_REVIEW,
-  APP_STORE_STATES.DEVELOPER_REMOVED_FROM_SALE,
   APP_STORE_STATES.INVALID_BINARY,
-  APP_STORE_STATES.PENDING_DEVELOPER_RELEASE,
+
+  // Other states
+  APP_STORE_STATES.DEVELOPER_REMOVED_FROM_SALE,
 ];
 
-/**
- * Action types for version determination
- */
-export const VERSION_ACTIONS = {
-  NEW_VERSION: 'new_version',
-  INCREMENT_BUILD: 'increment_build',
+// ===== Version Actions =====
+
+export const VERSION_ACTION_TYPES = {
+  CREATE_NEW_VERSION: 'new_version',
+  INCREMENT_BUILD_NUMBER: 'increment_build',
 } as const;
 
-export type VersionAction = (typeof VERSION_ACTIONS)[keyof typeof VERSION_ACTIONS];
+export type VersionActionType = (typeof VERSION_ACTION_TYPES)[keyof typeof VERSION_ACTION_TYPES];
 
-/**
- * Platform types
- */
-export const PLATFORMS = {
+// ===== Platform Types =====
+
+export const PLATFORM_TYPES = {
   IOS: 'IOS',
   MAC_OS: 'MAC_OS',
   TV_OS: 'TV_OS',
 } as const;
 
-export type Platform = (typeof PLATFORMS)[keyof typeof PLATFORMS];
+export type PlatformType = (typeof PLATFORM_TYPES)[keyof typeof PLATFORM_TYPES];
 
-/**
- * API configuration
- */
-export const API_CONFIG = {
+// ===== External Service Configuration =====
+
+export const APP_STORE_CONNECT_API = {
   BASE_URL: 'https://api.appstoreconnect.apple.com/v1',
-  TIMEOUT: 30000,
+  TIMEOUT_MS: 30000,
 } as const;
 
-/**
- * JWT configuration
- */
-export const JWT_CONFIG = {
+export const JWT_AUTHENTICATION = {
   ALGORITHM: 'ES256' as const,
-  EXPIRATION_TIME: 20 * 60, // 20 minutes in seconds
+  EXPIRATION_SECONDS: 20 * 60, // 20 minutes
   AUDIENCE: 'appstoreconnect-v1',
 } as const;
 
-/**
- * Version format regex
- */
-export const VERSION_REGEX = /^\d+\.\d+\.\d+$/;
+// ===== Validation Patterns =====
+
+export const SEMANTIC_VERSION_PATTERN = /^\d+\.\d+\.\d+$/;

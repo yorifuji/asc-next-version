@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { Version } from '../../../../src/domain/valueObjects/version.js';
+import { SemanticVersion, Version } from '../../../../src/domain/valueObjects/version.js';
 import { ValidationError } from '../../../../src/shared/errors/customErrors.js';
 
 describe('Version', () => {
@@ -107,6 +107,15 @@ describe('Version', () => {
       const v2 = new Version('1.2.4');
 
       expect(v1.equals(v2)).toBe(false);
+    });
+  });
+
+  describe('parse (SemanticVersion)', () => {
+    test('文字列から新しいSemanticVersionを作成する', () => {
+      const result = SemanticVersion.parse('1.2.3');
+
+      expect(result).toBeInstanceOf(SemanticVersion);
+      expect(result.toString()).toBe('1.2.3');
     });
   });
 });
