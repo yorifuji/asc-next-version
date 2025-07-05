@@ -1,6 +1,10 @@
 name: "App Store Connect Next Version"
 description: "Determines the next version and build number based on App Store Connect status."
-author: "Gemini"
+author: "yorifuji"
+
+branding:
+  icon: cloud
+  color: blue
 
 inputs:
   issuer-id:
