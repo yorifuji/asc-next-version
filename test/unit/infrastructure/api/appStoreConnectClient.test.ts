@@ -1,6 +1,4 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
-import axios from 'axios';
-import type { AxiosError } from 'axios';
 import { AppStoreConnectApiClient } from '../../../../src/infrastructure/api/appStoreConnectClient.js';
 import { Application } from '../../../../src/domain/entities/app.js';
 import { AppStoreVersion } from '../../../../src/domain/entities/appStoreVersion.js';
@@ -9,33 +7,28 @@ import { ApplicationBuildNumber } from '../../../../src/domain/valueObjects/buil
 import { APP_STORE_STATES, PLATFORM_TYPES } from '../../../../src/shared/constants/index.js';
 import type { ApiErrorResponse } from '../../../../src/shared/types/api.js';
 
-// Mock axios
-vi.mock('axios');
+type FetchCall = [
+  URL,
+  {
+    headers?: Record<string, string>;
+    method?: string;
+    body?: string;
+  },
+];
 
 describe('AppStoreConnectApiClient', () => {
-  let mockHttpClient: any;
-  let mockJwtGenerator: any;
+  let mockJwtGenerator: {
+    generateAuthToken: ReturnType<typeof vi.fn>;
+    isTokenExpiringSoon: ReturnType<typeof vi.fn>;
+  };
   let client: AppStoreConnectApiClient;
+  let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     vi.clearAllMocks();
+    fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
 
-    // Create mock HTTP client
-    mockHttpClient = {
-      defaults: { headers: { common: {} } },
-      interceptors: {
-        request: { use: vi.fn() },
-        response: { use: vi.fn() },
-      },
-      get: vi.fn(),
-      post: vi.fn(),
-      patch: vi.fn(),
-      delete: vi.fn(),
-    };
-
-    vi.mocked(axios.create).mockReturnValue(mockHttpClient);
-
-    // Create mock JWT generator
     mockJwtGenerator = {
       generateAuthToken: vi.fn().mockReturnValue('mock-jwt-token'),
       isTokenExpiringSoon: vi.fn().mockReturnValue(false),
@@ -46,8 +39,8 @@ describe('AppStoreConnectApiClient', () => {
 
   describe('findApplicationByBundleId', () => {
     test('returns app when found', async () => {
-      const mockResponse = {
-        data: {
+      fetchMock.mockResolvedValue(
+        createMockResponse({
           data: [
             {
               id: 'app-123',
@@ -59,22 +52,25 @@ describe('AppStoreConnectApiClient', () => {
               },
             },
           ],
-        },
-      };
-
-      mockHttpClient.get.mockResolvedValue(mockResponse);
+        }),
+      );
 
       const result = await client.findApplicationByBundleId('com.example.app');
 
       expect(result).toBeInstanceOf(Application);
       expect(result.bundleId).toBe('com.example.app');
-      expect(mockHttpClient.get).toHaveBeenCalledWith('/apps', {
-        params: { 'filter[bundleId]': 'com.example.app' },
+
+      const [url, options] = fetchMock.mock.calls[0] as FetchCall;
+      expect(url.pathname).toBe('/apps');
+      expect(url.searchParams.get('filter[bundleId]')).toBe('com.example.app');
+      expect(options.headers).toMatchObject({
+        Authorization: 'Bearer mock-jwt-token',
+        'Content-Type': 'application/json',
       });
     });
 
     test('throws error when no app found with empty array', async () => {
-      mockHttpClient.get.mockResolvedValue({ data: { data: [] } });
+      fetchMock.mockResolvedValue(createMockResponse({ data: [] }));
 
       await expect(client.findApplicationByBundleId('com.notfound.app')).rejects.toThrow(
         'No app found with bundle ID: com.notfound.app',
@@ -82,7 +78,7 @@ describe('AppStoreConnectApiClient', () => {
     });
 
     test('throws error when no app found with null data', async () => {
-      mockHttpClient.get.mockResolvedValue({ data: { data: null } });
+      fetchMock.mockResolvedValue(createMockResponse({ data: null }));
 
       await expect(client.findApplicationByBundleId('com.notfound.app')).rejects.toThrow(
         'No app found with bundle ID: com.notfound.app',
@@ -93,8 +89,8 @@ describe('AppStoreConnectApiClient', () => {
       mockJwtGenerator.isTokenExpiringSoon.mockReturnValue(true);
       mockJwtGenerator.generateAuthToken.mockReturnValue('new-jwt-token');
 
-      const mockResponse = {
-        data: {
+      fetchMock.mockResolvedValue(
+        createMockResponse({
           data: [
             {
               id: 'app-123',
@@ -106,22 +102,23 @@ describe('AppStoreConnectApiClient', () => {
               },
             },
           ],
-        },
-      };
-
-      mockHttpClient.get.mockResolvedValue(mockResponse);
+        }),
+      );
 
       await client.findApplicationByBundleId('com.example.app');
 
-      expect(mockJwtGenerator.generateAuthToken).toHaveBeenCalledTimes(2); // Initial + refresh
-      expect(mockHttpClient.defaults.headers.common['Authorization']).toBe('Bearer new-jwt-token');
+      expect(mockJwtGenerator.generateAuthToken).toHaveBeenCalledTimes(2);
+      const [, options] = fetchMock.mock.calls[0] as FetchCall;
+      expect(options.headers).toMatchObject({
+        Authorization: 'Bearer new-jwt-token',
+      });
     });
   });
 
   describe('fetchAppStoreVersions', () => {
     test('returns array of versions with all filters', async () => {
-      const mockResponse = {
-        data: {
+      fetchMock.mockResolvedValue(
+        createMockResponse({
           data: [
             {
               id: 'version-1',
@@ -133,10 +130,8 @@ describe('AppStoreConnectApiClient', () => {
               },
             },
           ],
-        },
-      };
-
-      mockHttpClient.get.mockResolvedValue(mockResponse);
+        }),
+      );
 
       const result = await client.fetchAppStoreVersions('app-123', {
         state: APP_STORE_STATES.READY_FOR_SALE,
@@ -147,19 +142,18 @@ describe('AppStoreConnectApiClient', () => {
 
       expect(result).toHaveLength(1);
       expect(result[0]).toBeInstanceOf(AppStoreVersion);
-      expect(mockHttpClient.get).toHaveBeenCalledWith('/apps/app-123/appStoreVersions', {
-        params: {
-          'filter[appStoreState]': APP_STORE_STATES.READY_FOR_SALE,
-          'filter[versionString]': '1.0.0',
-          'filter[platform]': PLATFORM_TYPES.IOS,
-          limit: 10,
-        },
-      });
+
+      const [url] = fetchMock.mock.calls[0] as FetchCall;
+      expect(url.pathname).toBe('/apps/app-123/appStoreVersions');
+      expect(url.searchParams.get('filter[appStoreState]')).toBe(APP_STORE_STATES.READY_FOR_SALE);
+      expect(url.searchParams.get('filter[versionString]')).toBe('1.0.0');
+      expect(url.searchParams.get('filter[platform]')).toBe(PLATFORM_TYPES.IOS);
+      expect(url.searchParams.get('limit')).toBe('10');
     });
 
     test('handles single version response', async () => {
-      const mockResponse = {
-        data: {
+      fetchMock.mockResolvedValue(
+        createMockResponse({
           data: {
             id: 'version-1',
             attributes: {
@@ -169,10 +163,8 @@ describe('AppStoreConnectApiClient', () => {
               createdDate: '2024-01-01',
             },
           },
-        },
-      };
-
-      mockHttpClient.get.mockResolvedValue(mockResponse);
+        }),
+      );
 
       const result = await client.fetchAppStoreVersions('app-123');
 
@@ -183,18 +175,16 @@ describe('AppStoreConnectApiClient', () => {
 
   describe('fetchBuildNumberForVersion', () => {
     test('returns build number when build exists', async () => {
-      const mockResponse = {
-        data: {
+      fetchMock.mockResolvedValue(
+        createMockResponse({
           data: {
             id: 'build-1',
             attributes: {
               version: '42',
             },
           },
-        },
-      };
-
-      mockHttpClient.get.mockResolvedValue(mockResponse);
+        }),
+      );
 
       const result = await client.fetchBuildNumberForVersion('version-123');
 
@@ -203,7 +193,7 @@ describe('AppStoreConnectApiClient', () => {
     });
 
     test('returns 0 when no build exists', async () => {
-      mockHttpClient.get.mockResolvedValue({ data: { data: null } });
+      fetchMock.mockResolvedValue(createMockResponse({ data: null }));
 
       const result = await client.fetchBuildNumberForVersion('version-123');
 
@@ -211,17 +201,15 @@ describe('AppStoreConnectApiClient', () => {
     });
 
     test('throws error for invalid build version format', async () => {
-      const mockResponse = {
-        data: {
+      fetchMock.mockResolvedValue(
+        createMockResponse({
           data: {
             attributes: {
               version: 'invalid',
             },
           },
-        },
-      };
-
-      mockHttpClient.get.mockResolvedValue(mockResponse);
+        }),
+      );
 
       await expect(client.fetchBuildNumberForVersion('version-123')).rejects.toThrow(
         'Invalid build version: invalid',
@@ -231,7 +219,7 @@ describe('AppStoreConnectApiClient', () => {
 
   describe('fetchBuilds', () => {
     test('returns empty array when no builds found', async () => {
-      mockHttpClient.get.mockResolvedValue({ data: { data: [] } });
+      fetchMock.mockResolvedValue(createMockResponse({ data: [] }));
 
       const result = await client.fetchBuilds('app-123');
 
@@ -239,8 +227,8 @@ describe('AppStoreConnectApiClient', () => {
     });
 
     test('returns builds with filters', async () => {
-      const mockResponse = {
-        data: {
+      fetchMock.mockResolvedValue(
+        createMockResponse({
           data: [
             {
               id: 'build-1',
@@ -251,10 +239,8 @@ describe('AppStoreConnectApiClient', () => {
               },
             },
           ],
-        },
-      };
-
-      mockHttpClient.get.mockResolvedValue(mockResponse);
+        }),
+      );
 
       const result = await client.fetchBuilds('app-123', {
         version: '10',
@@ -264,22 +250,21 @@ describe('AppStoreConnectApiClient', () => {
 
       expect(result).toHaveLength(1);
       expect(result[0].version.getValue()).toBe(10);
-      expect(mockHttpClient.get).toHaveBeenCalledWith('/builds', {
-        params: {
-          'filter[app]': 'app-123',
-          sort: '-version',
-          limit: 5,
-          'filter[version]': '10',
-          'filter[preReleaseVersion]': '1.0.0',
-        },
-      });
+
+      const [url] = fetchMock.mock.calls[0] as FetchCall;
+      expect(url.pathname).toBe('/builds');
+      expect(url.searchParams.get('filter[app]')).toBe('app-123');
+      expect(url.searchParams.get('sort')).toBe('-version');
+      expect(url.searchParams.get('limit')).toBe('5');
+      expect(url.searchParams.get('filter[version]')).toBe('10');
+      expect(url.searchParams.get('filter[preReleaseVersion]')).toBe('1.0.0');
     });
   });
 
   describe('createNewAppStoreVersion', () => {
     test('creates new version successfully', async () => {
-      const mockResponse = {
-        data: {
+      fetchMock.mockResolvedValue(
+        createMockResponse({
           data: {
             id: 'version-new',
             attributes: {
@@ -289,37 +274,41 @@ describe('AppStoreConnectApiClient', () => {
               createdDate: '2024-01-01',
             },
           },
-        },
-      };
-
-      mockHttpClient.post.mockResolvedValue(mockResponse);
+        }),
+      );
 
       const version = new SemanticVersion('2.0.0');
       const result = await client.createNewAppStoreVersion('app-123', version, PLATFORM_TYPES.IOS);
 
       expect(result).toBeInstanceOf(AppStoreVersion);
       expect(result.version.toString()).toBe('2.0.0');
-      expect(mockHttpClient.post).toHaveBeenCalledWith('/appStoreVersions', {
-        data: {
-          type: 'appStoreVersions',
-          attributes: {
-            platform: PLATFORM_TYPES.IOS,
-            versionString: '2.0.0',
-          },
-          relationships: {
-            app: {
-              data: {
-                type: 'apps',
-                id: 'app-123',
+
+      const [url, options] = fetchMock.mock.calls[0] as FetchCall;
+      expect(url.pathname).toBe('/appStoreVersions');
+      expect(options.method).toBe('POST');
+      expect(options.body).toBe(
+        JSON.stringify({
+          data: {
+            type: 'appStoreVersions',
+            attributes: {
+              platform: PLATFORM_TYPES.IOS,
+              versionString: '2.0.0',
+            },
+            relationships: {
+              app: {
+                data: {
+                  type: 'apps',
+                  id: 'app-123',
+                },
               },
             },
           },
-        },
-      });
+        }),
+      );
     });
 
     test('throws error when creation fails', async () => {
-      mockHttpClient.post.mockResolvedValue({ data: { data: null } });
+      fetchMock.mockResolvedValue(createMockResponse({ data: null }));
 
       const version = new SemanticVersion('2.0.0');
 
@@ -331,32 +320,18 @@ describe('AppStoreConnectApiClient', () => {
 
   describe('error handling', () => {
     test('handles network error', async () => {
-      const networkError = new Error('Network error') as AxiosError;
-      networkError.response = undefined;
+      fetchMock.mockRejectedValue(new Error('Network error'));
 
-      // Setup interceptor to capture error handler
-      let errorHandler: any;
-      mockHttpClient.interceptors.response.use.mockImplementation((success, error) => {
-        errorHandler = error;
+      await expect(client.findApplicationByBundleId('com.example.app')).rejects.toMatchObject({
+        message: 'Network error: Network error',
+        statusCode: 0,
       });
-
-      // Create client to setup interceptors
-      new AppStoreConnectApiClient({ jwtGenerator: mockJwtGenerator });
-
-      // Test error handler
-      try {
-        await errorHandler(networkError);
-      } catch (error: any) {
-        expect(error.message).toBe('Network error: Network error');
-        expect(error.statusCode).toBe(0);
-      }
     });
 
     test('handles API error with detailed response', async () => {
-      const apiError = {
-        response: {
-          status: 404,
-          data: {
+      fetchMock.mockResolvedValue(
+        createMockResponse(
+          {
             errors: [
               {
                 title: 'Not Found',
@@ -364,85 +339,53 @@ describe('AppStoreConnectApiClient', () => {
               },
             ],
           } as ApiErrorResponse,
-        },
-      } as AxiosError<ApiErrorResponse>;
+          { ok: false, status: 404 },
+        ),
+      );
 
-      // Setup interceptor to capture error handler
-      let errorHandler: any;
-      mockHttpClient.interceptors.response.use.mockImplementation((success, error) => {
-        errorHandler = error;
+      await expect(client.findApplicationByBundleId('com.example.app')).rejects.toMatchObject({
+        message: 'The requested resource was not found',
+        statusCode: 404,
       });
-
-      // Create client to setup interceptors
-      new AppStoreConnectApiClient({ jwtGenerator: mockJwtGenerator });
-
-      // Test error handler
-      try {
-        await errorHandler(apiError);
-      } catch (error: any) {
-        expect(error.message).toBe('The requested resource was not found');
-        expect(error.statusCode).toBe(404);
-      }
     });
 
     test('handles API error without detail', async () => {
-      const apiError = {
-        response: {
-          status: 500,
-          data: {
+      fetchMock.mockResolvedValue(
+        createMockResponse(
+          {
             errors: [
               {
                 title: 'Internal Server Error',
               },
             ],
           } as ApiErrorResponse,
-        },
-      } as AxiosError<ApiErrorResponse>;
+          { ok: false, status: 500 },
+        ),
+      );
 
-      // Setup interceptor to capture error handler
-      let errorHandler: any;
-      mockHttpClient.interceptors.response.use.mockImplementation((success, error) => {
-        errorHandler = error;
+      await expect(client.findApplicationByBundleId('com.example.app')).rejects.toMatchObject({
+        message: 'Internal Server Error',
+        statusCode: 500,
       });
-
-      // Create client to setup interceptors
-      new AppStoreConnectApiClient({ jwtGenerator: mockJwtGenerator });
-
-      // Test error handler
-      try {
-        await errorHandler(apiError);
-      } catch (error: any) {
-        expect(error.message).toBe('Internal Server Error');
-        expect(error.statusCode).toBe(500);
-      }
     });
 
     test('handles API error with empty errors array', async () => {
-      const apiError = {
-        response: {
-          status: 400,
-          data: {
-            errors: [],
-          } as ApiErrorResponse,
-        },
-      } as AxiosError<ApiErrorResponse>;
+      fetchMock.mockResolvedValue(
+        createMockResponse({ errors: [] } as ApiErrorResponse, { ok: false, status: 400 }),
+      );
 
-      // Setup interceptor to capture error handler
-      let errorHandler: any;
-      mockHttpClient.interceptors.response.use.mockImplementation((success, error) => {
-        errorHandler = error;
+      await expect(client.findApplicationByBundleId('com.example.app')).rejects.toMatchObject({
+        message: 'API request failed with status 400',
+        statusCode: 400,
       });
-
-      // Create client to setup interceptors
-      new AppStoreConnectApiClient({ jwtGenerator: mockJwtGenerator });
-
-      // Test error handler
-      try {
-        await errorHandler(apiError);
-      } catch (error: any) {
-        expect(error.message).toBe('API request failed with status 400');
-        expect(error.statusCode).toBe(400);
-      }
     });
   });
 });
+
+function createMockResponse(body: unknown, init: { ok?: boolean; status?: number } = {}): Response {
+  return {
+    ok: init.ok ?? true,
+    status: init.status ?? 200,
+    json: vi.fn().mockResolvedValue(body),
+  } as unknown as Response;
+}
