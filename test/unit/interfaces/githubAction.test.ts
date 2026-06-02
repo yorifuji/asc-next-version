@@ -62,12 +62,11 @@ describe('GitHubAction', () => {
         versionCreated: true,
       };
 
-      vi.mocked(NextVersionDeterminationUseCase).mockImplementation(
-        () =>
-          ({
-            determineNextVersion: vi.fn().mockResolvedValue(mockResult),
-          }) as any,
-      );
+      vi.mocked(NextVersionDeterminationUseCase).mockImplementation(function () {
+        return {
+          determineNextVersion: vi.fn().mockResolvedValue(mockResult),
+        } as any;
+      });
 
       const action = new GitHubAction();
       await action.execute();
@@ -130,12 +129,11 @@ describe('GitHubAction', () => {
 
       const apiError = createApiError('App not found', 404, { detail: 'No app exists' });
 
-      vi.mocked(NextVersionDeterminationUseCase).mockImplementation(
-        () =>
-          ({
-            determineNextVersion: vi.fn().mockRejectedValue(apiError),
-          }) as any,
-      );
+      vi.mocked(NextVersionDeterminationUseCase).mockImplementation(function () {
+        return {
+          determineNextVersion: vi.fn().mockRejectedValue(apiError),
+        } as any;
+      });
 
       const action = new GitHubAction();
       await action.execute();
@@ -180,12 +178,11 @@ describe('GitHubAction', () => {
       };
 
       const mockDetermineNextVersion = vi.fn().mockResolvedValue(mockResult);
-      vi.mocked(NextVersionDeterminationUseCase).mockImplementation(
-        () =>
-          ({
-            determineNextVersion: mockDetermineNextVersion,
-          }) as any,
-      );
+      vi.mocked(NextVersionDeterminationUseCase).mockImplementation(function () {
+        return {
+          determineNextVersion: mockDetermineNextVersion,
+        } as any;
+      });
 
       const action = new GitHubAction();
       await action.execute();
@@ -257,12 +254,11 @@ describe('GitHubAction', () => {
         versionCreated: false,
       };
 
-      vi.mocked(NextVersionDeterminationUseCase).mockImplementation(
-        () =>
-          ({
-            determineNextVersion: vi.fn().mockResolvedValue(mockResult),
-          }) as any,
-      );
+      vi.mocked(NextVersionDeterminationUseCase).mockImplementation(function () {
+        return {
+          determineNextVersion: vi.fn().mockResolvedValue(mockResult),
+        } as any;
+      });
 
       const action = new GitHubAction();
       await action.execute();

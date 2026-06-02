@@ -9,7 +9,7 @@ async function buildAction() {
       minify: true,
       sourcemap: false,
       platform: 'node',
-      target: 'node20',
+      target: 'node24',
       format: 'cjs',
       outfile: 'dist/index.cjs',
       // GitHub Actionsのモジュールもバンドルに含める
