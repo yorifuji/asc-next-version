@@ -3,12 +3,16 @@ import { executeAction } from '../../src/index.js';
 
 // Mock the GitHubAction
 vi.mock('../../src/interfaces/actions/githubAction.js', () => ({
-  GitHubAction: vi.fn().mockImplementation(() => ({
-    execute: vi.fn().mockResolvedValue(undefined),
-  })),
-  AppStoreVersionAction: vi.fn().mockImplementation(() => ({
-    execute: vi.fn().mockResolvedValue(undefined),
-  })),
+  GitHubAction: vi.fn().mockImplementation(function () {
+    return {
+      execute: vi.fn().mockResolvedValue(undefined),
+    };
+  }),
+  AppStoreVersionAction: vi.fn().mockImplementation(function () {
+    return {
+      execute: vi.fn().mockResolvedValue(undefined),
+    };
+  }),
 }));
 
 describe('index', () => {
@@ -16,12 +20,11 @@ describe('index', () => {
     const mockExecute = vi.fn().mockResolvedValue(undefined);
     const { GitHubAction } = await import('../../src/interfaces/actions/githubAction.js');
 
-    vi.mocked(GitHubAction).mockImplementation(
-      () =>
-        ({
-          execute: mockExecute,
-        }) as any,
-    );
+    vi.mocked(GitHubAction).mockImplementation(function () {
+      return {
+        execute: mockExecute,
+      } as any;
+    });
 
     await executeAction();
 

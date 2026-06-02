@@ -39,5 +39,5 @@ outputs:
     description: "True if a new App Store version was created, false otherwise."
 
 runs:
-  using: "node20"
+  using: "node24"
   main: "dist/index.cjs"
