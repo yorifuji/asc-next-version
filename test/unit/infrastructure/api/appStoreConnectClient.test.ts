@@ -61,7 +61,7 @@ describe('AppStoreConnectApiClient', () => {
       expect(result.bundleId).toBe('com.example.app');
 
       const [url, options] = fetchMock.mock.calls[0] as FetchCall;
-      expect(url.pathname).toBe('/apps');
+      expect(url.pathname).toBe('/v1/apps');
       expect(url.searchParams.get('filter[bundleId]')).toBe('com.example.app');
       expect(options.headers).toMatchObject({
         Authorization: 'Bearer mock-jwt-token',
@@ -144,7 +144,7 @@ describe('AppStoreConnectApiClient', () => {
       expect(result[0]).toBeInstanceOf(AppStoreVersion);
 
       const [url] = fetchMock.mock.calls[0] as FetchCall;
-      expect(url.pathname).toBe('/apps/app-123/appStoreVersions');
+      expect(url.pathname).toBe('/v1/apps/app-123/appStoreVersions');
       expect(url.searchParams.get('filter[appStoreState]')).toBe(APP_STORE_STATES.READY_FOR_SALE);
       expect(url.searchParams.get('filter[versionString]')).toBe('1.0.0');
       expect(url.searchParams.get('filter[platform]')).toBe(PLATFORM_TYPES.IOS);
@@ -252,7 +252,7 @@ describe('AppStoreConnectApiClient', () => {
       expect(result[0].version.getValue()).toBe(10);
 
       const [url] = fetchMock.mock.calls[0] as FetchCall;
-      expect(url.pathname).toBe('/builds');
+      expect(url.pathname).toBe('/v1/builds');
       expect(url.searchParams.get('filter[app]')).toBe('app-123');
       expect(url.searchParams.get('sort')).toBe('-version');
       expect(url.searchParams.get('limit')).toBe('5');
@@ -284,7 +284,7 @@ describe('AppStoreConnectApiClient', () => {
       expect(result.version.toString()).toBe('2.0.0');
 
       const [url, options] = fetchMock.mock.calls[0] as FetchCall;
-      expect(url.pathname).toBe('/appStoreVersions');
+      expect(url.pathname).toBe('/v1/appStoreVersions');
       expect(options.method).toBe('POST');
       expect(options.body).toBe(
         JSON.stringify({
