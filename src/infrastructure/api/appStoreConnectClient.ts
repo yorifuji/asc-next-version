@@ -206,7 +206,8 @@ export class AppStoreConnectApiClient {
     path: string,
     options: HttpRequestOptions = {},
   ): Promise<{ data: T }> {
-    const url = new URL(path, APP_STORE_CONNECT_API.BASE_URL);
+    const relativePath = path.replace(/^\/+/, '');
+    const url = new URL(relativePath, `${APP_STORE_CONNECT_API.BASE_URL}/`);
     for (const [key, value] of Object.entries(options.params ?? {})) {
       url.searchParams.set(key, String(value));
     }
